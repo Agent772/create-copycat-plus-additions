@@ -90,8 +90,12 @@ configurations {
 dependencies {
     // Copycats+ — compileOnly so players must install it themselves at runtime
     compileOnly "maven.modrinth:copycats:${copycats_version}"
+    // Create — compileOnly: needed to resolve the Create base types that Copycats+'
+    // blocks extend. Supplied transitively by Copycats+ at runtime.
+    compileOnly "maven.modrinth:create:${create_version}"
     // Add to localRuntime when testing locally (requires Copycats+ jar in your dev env)
     // localRuntime "maven.modrinth:copycats:${copycats_version}"
+    // localRuntime "maven.modrinth:create:${create_version}"
 }
 
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
