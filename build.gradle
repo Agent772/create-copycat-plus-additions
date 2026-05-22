@@ -1,27 +1,18 @@
 plugins {
-    id 'java'
-    id 'net.neoforged.gradle.userdev' version '7.0.145'
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.110'
+    id 'io.github.themrmilchmann.curseforge-publish' version '0.8.0'
+    id 'com.modrinth.minotaur' version '2.+'
+    id 'idea'
 }
 
-group = mod_group_id
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
 version = mod_version
-
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
-
-runs {
-    configureEach {
-        systemProperty 'forge.logging.markers', 'REGISTRIES'
-        systemProperty 'forge.logging.console.level', 'debug'
-        modSource project.sourceSets.main
-    }
-    client {
-        systemProperty 'forge.enabledGameTestNamespaces', mod_id
-    }
-    server {
-        systemProperty 'forge.enabledGameTestNamespaces', mod_id
-        programArgument '--nogui'
-    }
-}
+group = mod_group_id
 
 repositories {
     maven {
@@ -31,26 +22,209 @@ repositories {
     }
 }
 
+base {
+    archivesName = 'copycats-plus-additions'
+}
+
+tasks.named('jar', Jar) {
+    archiveClassifier = 'neo'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        gameTestServer {
+            type = 'gameTestServer'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all',
+                '--output', file('src/generated/resources/').getAbsolutePath(),
+                '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+tasks.named('processResources', ProcessResources).configure {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
 dependencies {
-    implementation "net.neoforged:neoforge:${neo_version}"
-    // Copycats+ is compileOnly - players need it installed at runtime
+    // Copycats+ — compileOnly so players must install it themselves at runtime
     compileOnly "maven.modrinth:copycats-plus:${copycats_version}"
+    // Add to localRuntime when testing locally (requires Copycats+ jar in your dev env)
+    // localRuntime "maven.modrinth:copycats-plus:${copycats_version}"
+}
+
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            copycats_version       : copycats_version,
+            copycats_version_range : copycats_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/repo"
+        }
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
-jar {
-    from('LICENSE') {
-        rename { "${it}_${mod_name}" }
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
     }
-    manifest {
-        attributes([
-            'Specification-Title'     : mod_id,
-            'Specification-Version'   : '1',
-            'Implementation-Title'    : project.name,
-            'Implementation-Version'  : project.version
-        ])
+}
+
+// Copy built jar to a local test instance after build — update path in your local gradle.properties
+tasks.register('copyJarToTester', Copy) {
+    dependsOn 'jar'
+    from("$buildDir/libs") {
+        include "${mod_id}*.jar"
     }
+    into file(project.findProperty('tester_mods_path') ?: 'run/mods')
+}
+
+def getChangelogProvider() {
+    return providers.provider {
+        if (project.hasProperty('changelog')) {
+            return project.property('changelog')
+        }
+        def changelogFile = file('CHANGELOG.md')
+        if (changelogFile.exists()) {
+            return changelogFile.text
+        }
+        try {
+            def stdout = new ByteArrayOutputStream()
+            exec {
+                commandLine 'git', 'log', '-1', '--pretty=%B'
+                standardOutput = stdout
+                ignoreExitValue = true
+            }
+            def message = stdout.toString().trim()
+            if (message) return message
+        } catch (Exception ignored) {}
+        return "Release ${version}"
+    }
+}
+
+curseforge {
+    apiToken = providers.gradleProperty('curseforge_api_key')
+    publications {
+        neoForge {
+            projectId = project.findProperty('curseforge_project_id')
+            artifacts {
+                main {
+                    from(tasks.jar)
+                    displayName = "copycats-plus-additions-${version}-neo"
+                    releaseType = io.github.themrmilchmann.gradle.publish.curseforge.ReleaseType.RELEASE
+                    changelog {
+                        format = io.github.themrmilchmann.gradle.publish.curseforge.ChangelogFormat.MARKDOWN
+                        content = getChangelogProvider()
+                    }
+                    relations {
+                        requiredDependency(project.findProperty('curseforge_copycats_mod_slug') ?: 'copycats-plus')
+                    }
+                }
+            }
+        }
+    }
+}
+
+modrinth {
+    token = providers.gradleProperty('modrinth_token')
+    projectId = project.findProperty('modrinth_project_id')
+    versionNumber = version
+    versionName = "copycats-plus-additions-${version}-neo"
+    versionType = 'release'
+    uploadFile = tasks.jar
+    gameVersions = [minecraft_version]
+    loaders = ['neoforge']
+    changelog = getChangelogProvider()
+    dependencies {
+        required.project 'copycats-plus'
+    }
+}
+
+tasks.register('releaseCurseForge') {
+    group = 'upload'
+    description = 'Builds and uploads the jar to CurseForge'
+    dependsOn 'publishNeoForgePublicationToCurseForge'
+}
+
+tasks.register('releaseModrinth') {
+    group = 'upload'
+    description = 'Builds and uploads the jar to Modrinth'
+    dependsOn 'modrinth'
+}
+
+tasks.register('release') {
+    group = 'upload'
+    description = 'Builds and uploads the jar to both CurseForge and Modrinth'
+    dependsOn 'releaseCurseForge', 'releaseModrinth'
 }
