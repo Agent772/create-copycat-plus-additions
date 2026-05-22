@@ -89,9 +89,9 @@ configurations {
 
 dependencies {
     // Copycats+ — compileOnly so players must install it themselves at runtime
-    compileOnly "maven.modrinth:copycats-plus:${copycats_version}"
+    compileOnly "maven.modrinth:copycats:${copycats_version}"
     // Add to localRuntime when testing locally (requires Copycats+ jar in your dev env)
-    // localRuntime "maven.modrinth:copycats-plus:${copycats_version}"
+    // localRuntime "maven.modrinth:copycats:${copycats_version}"
 }
 
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
@@ -188,7 +188,7 @@ curseforge {
                         content = getChangelogProvider()
                     }
                     relations {
-                        requiredDependency(project.findProperty('curseforge_copycats_mod_slug') ?: 'copycats-plus')
+                        requiredDependency(project.findProperty('curseforge_copycats_mod_slug') ?: 'copycats')
                     }
                 }
             }
@@ -207,7 +207,7 @@ modrinth {
     loaders = ['neoforge']
     changelog = getChangelogProvider()
     dependencies {
-        required.project 'copycats-plus'
+        required.project 'copycats'
     }
 }
 
