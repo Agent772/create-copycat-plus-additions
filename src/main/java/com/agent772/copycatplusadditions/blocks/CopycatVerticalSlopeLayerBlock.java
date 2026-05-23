@@ -4,6 +4,7 @@ import com.agent772.copycatplusadditions.registry.ModBlockEntities;
 import com.copycatsplus.copycats.CCShapes;
 import com.copycatsplus.copycats.content.copycat.slope_layer.CopycatSlopeLayerBlock;
 import com.copycatsplus.copycats.foundation.copycat.CCCopycatBlockEntity;
+import com.simibubi.create.content.contraptions.StructureTransform;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +37,13 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
 
     /** {@code true} when the slope is mounted against a vertical (wall) face. */
     public static final BooleanProperty IN_WALL = BooleanProperty.create("in_wall");
+
+    /**
+     * Cursor-Y threshold for choosing {@link Half#TOP} vs {@link Half#BOTTOM} when
+     * placing onto a wall: anything above the block's vertical midpoint puts the
+     * narrow edge up, anything at or below puts it down.
+     */
+    private static final double WALL_HALF_THRESHOLD = 0.5D;
 
     /**
      * Cache of the rotated wall shapes: {@code FACING -> HALF -> LAYERS -> VoxelShape}.
@@ -89,7 +97,7 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
         // whichever side of the block the player was aiming at.
         Direction facing = clickedFace;
         double yOffset = context.getClickLocation().y - context.getClickedPos().getY();
-        Half half = yOffset > 0.5D ? Half.TOP : Half.BOTTOM;
+        Half half = yOffset > WALL_HALF_THRESHOLD ? Half.TOP : Half.BOTTOM;
         return placement
             .setValue(FACING, facing)
             .setValue(HALF, half)
@@ -115,10 +123,14 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
         boolean inWall = state.getValue(IN_WALL);
         Direction clickedFace = context.getClickedFace();
         if (inWall) {
-            if (clickedFace == facing) return true;
-        } else {
-            if (clickedFace == facing.getOpposite()) return true;
+            // Wall slopes can only be extended by clicking the FACING face (the one
+            // pointing out of the wall). The TOP/BOTTOM half-stacking checks below
+            // are floor-slope specific (clicking the slope's flat surface from
+            // above/below); they don't translate to the wall-mounted geometry, so
+            // they're gated off here.
+            return clickedFace == facing;
         }
+        if (clickedFace == facing.getOpposite()) return true;
         if (half == Half.TOP && clickedFace == Direction.DOWN) return true;
         if (half == Half.BOTTOM && clickedFace == Direction.UP) return true;
         return false;
@@ -154,12 +166,64 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
             .computeIfAbsent(layers, l -> buildWallShape(facing, half, layers));
     }
 
+    @Override
+    public boolean hidesNeighborFace(BlockGetter level, BlockPos pos, BlockState state, BlockState neighborState, Direction dir) {
+        // Parent face-culling assumes geometry follows FACING/HALF alone, but a wall
+        // slope's visible shape has been rotated 90° around X or Z. The parent would
+        // hide/show the wrong neighbour faces against adjacent solids, producing
+        // Z-fighting or holes. Threading the wall rotation through ICopycatBlock's
+        // shape-based occlusion would mean re-deriving every shape's face projections
+        // post-rotation, which isn't worth the complexity for a single layer of
+        // hidden faces — disable face hiding for wall slopes instead.
+        if (state.getValue(IN_WALL)) {
+            return false;
+        }
+        return super.hidesNeighborFace(level, pos, state, neighborState, dir);
+    }
+
+    @Override
+    public BlockState transform(BlockState state, StructureTransform transform) {
+        // Parent's transform carries the upstream "todo: vertical slope layer not
+        // supported yet" caveat and only knows how to rotate horizontal FACING
+        // (via BlockUtils.transformStepLikeHorizontal). It pins non-Y-axis 90°
+        // rotations to Rotation.NONE before delegating, which matches the upstream
+        // pattern we want for wall slopes too.
+        //
+        // For wall slopes the relevant cases work out:
+        //   - Y-axis rotation: parent rotates FACING horizontally — the wall normal
+        //     follows the contraption rotation, which is exactly what we want.
+        //   - Non-Y-axis 90°: parent pins to Rotation.NONE → state unchanged. The
+        //     visual won't follow the contraption, but the block isn't left in a
+        //     contradictory state either (same punt upstream makes for vertical slopes).
+        //   - Mirrors: parent either cycles HALF (INVERT_Y mirror — flips the narrow
+        //     edge up↔down, correct for a wall slope) or mirrors FACING through the
+        //     mirror plane (the wall normal mirrors, correct).
+        //
+        // IN_WALL is preserved because the parent rebuilds the returned state via
+        // tryCopyProperties, which copies every state property from the input.
+        BlockState transformed = super.transform(state, transform);
+        if (!state.getValue(IN_WALL)) {
+            return transformed;
+        }
+        // Defensive clamp: an exotic transform could leave FACING vertical (UP/DOWN),
+        // which has no valid wall-slope interpretation. Coerce back to a floor slope
+        // rather than render as a broken wall slope facing nowhere.
+        if (transformed.getValue(FACING).getAxis().isVertical()) {
+            return transformed.setValue(IN_WALL, false);
+        }
+        return transformed;
+    }
+
     /**
      * The rotation (in degrees) that tips the floor slope layer onto a vertical wall
      * for the given FACING/HALF. Values are taken verbatim from upstream Copycats+
      * PR #273's {@code CopycatSlopeLayerModelCore} (the reference design for vertical
      * slope layers), so the collision shape here and the rendered geometry in
      * {@code CopycatVerticalSlopeLayerModelCore} stay aligned.
+     *
+     * @throws IllegalArgumentException if {@code facing} is vertical — wall slopes are
+     *     always mounted against a horizontal facing, so a vertical FACING here means
+     *     a caller forgot the {@code IN_WALL} / horizontal-facing guard upstream.
      */
     public static int wallAngle(Direction facing, Half half) {
         return switch (facing) {
@@ -167,7 +231,8 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
             case SOUTH -> half == Half.TOP ? 90 : 270;
             case WEST -> half == Half.TOP ? 90 : 270;
             case EAST -> half == Half.TOP ? 270 : 90;
-            default -> 0;
+            default -> throw new IllegalArgumentException(
+                "wallAngle requires a horizontal FACING; got " + facing);
         };
     }
 
