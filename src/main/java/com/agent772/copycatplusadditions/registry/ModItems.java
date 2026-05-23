@@ -10,6 +10,6 @@ public class ModItems {
     public static final DeferredRegister.Items ITEMS =
         DeferredRegister.createItems(CopycatPlusAdditions.MOD_ID);
 
-    public static final DeferredItem<BlockItem> VERTICAL_SLOPE_LAYER =
-        ITEMS.registerSimpleBlockItem(ModBlocks.VERTICAL_SLOPE_LAYER);
+    public static final DeferredItem<BlockItem> ADV_SLOPE_LAYER =
+        ITEMS.registerSimpleBlockItem(ModBlocks.ADV_SLOPE_LAYER);
 }

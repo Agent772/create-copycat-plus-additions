@@ -10,7 +10,10 @@ public class ModBlocks {
     public static final DeferredRegister.Blocks BLOCKS =
         DeferredRegister.createBlocks(CopycatPlusAdditions.MOD_ID);
 
-    // Copycat slope layer that can also mount on vertical wall faces.
-    public static final DeferredBlock<CopycatVerticalSlopeLayerBlock> VERTICAL_SLOPE_LAYER =
-        BLOCKS.register("vertical_slope_layer", CopycatVerticalSlopeLayerBlock::new);
+    // The advanced slope layer: a copycat slope layer that can also mount on
+    // vertical wall faces. Positioned as a drop-in replacement for the upstream
+    // copycats:copycat_slope_layer (see CopycatPlusAdditions for the tab/recipe
+    // suppression that backs that positioning).
+    public static final DeferredBlock<CopycatVerticalSlopeLayerBlock> ADV_SLOPE_LAYER =
+        BLOCKS.register("adv_slope_layer", CopycatVerticalSlopeLayerBlock::new);
 }

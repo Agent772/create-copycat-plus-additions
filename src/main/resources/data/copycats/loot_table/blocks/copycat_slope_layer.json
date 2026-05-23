@@ -8,7 +8,7 @@
           "condition": "minecraft:survives_explosion"
         },
         {
-          "block": "copycatplusadditions:vertical_slope_layer",
+          "block": "copycats:copycat_slope_layer",
           "condition": "minecraft:block_state_property",
           "properties": {
             "layers": "1"
@@ -25,7 +25,7 @@
               "function": "minecraft:set_count"
             }
           ],
-          "name": "copycatplusadditions:vertical_slope_layer"
+          "name": "copycatplusadditions:adv_slope_layer"
         }
       ],
       "rolls": 1.0
@@ -37,7 +37,7 @@
           "condition": "minecraft:survives_explosion"
         },
         {
-          "block": "copycatplusadditions:vertical_slope_layer",
+          "block": "copycats:copycat_slope_layer",
           "condition": "minecraft:block_state_property",
           "properties": {
             "layers": "2"
@@ -54,7 +54,7 @@
               "function": "minecraft:set_count"
             }
           ],
-          "name": "copycatplusadditions:vertical_slope_layer"
+          "name": "copycatplusadditions:adv_slope_layer"
         }
       ],
       "rolls": 1.0
@@ -66,7 +66,7 @@
           "condition": "minecraft:survives_explosion"
         },
         {
-          "block": "copycatplusadditions:vertical_slope_layer",
+          "block": "copycats:copycat_slope_layer",
           "condition": "minecraft:block_state_property",
           "properties": {
             "layers": "3"
@@ -83,7 +83,7 @@
               "function": "minecraft:set_count"
             }
           ],
-          "name": "copycatplusadditions:vertical_slope_layer"
+          "name": "copycatplusadditions:adv_slope_layer"
         }
       ],
       "rolls": 1.0
@@ -95,7 +95,7 @@
           "condition": "minecraft:survives_explosion"
         },
         {
-          "block": "copycatplusadditions:vertical_slope_layer",
+          "block": "copycats:copycat_slope_layer",
           "condition": "minecraft:block_state_property",
           "properties": {
             "layers": "4"
@@ -112,7 +112,7 @@
               "function": "minecraft:set_count"
             }
           ],
-          "name": "copycatplusadditions:vertical_slope_layer"
+          "name": "copycatplusadditions:adv_slope_layer"
         }
       ],
       "rolls": 1.0
@@ -124,7 +124,7 @@
           "condition": "minecraft:survives_explosion"
         },
         {
-          "block": "copycatplusadditions:vertical_slope_layer",
+          "block": "copycats:copycat_slope_layer",
           "condition": "minecraft:block_state_property",
           "properties": {
             "layers": "5"
@@ -141,7 +141,7 @@
               "function": "minecraft:set_count"
             }
           ],
-          "name": "copycatplusadditions:vertical_slope_layer"
+          "name": "copycatplusadditions:adv_slope_layer"
         }
       ],
       "rolls": 1.0
@@ -153,7 +153,7 @@
           "condition": "minecraft:survives_explosion"
         },
         {
-          "block": "copycatplusadditions:vertical_slope_layer",
+          "block": "copycats:copycat_slope_layer",
           "condition": "minecraft:block_state_property",
           "properties": {
             "layers": "6"
@@ -170,7 +170,7 @@
               "function": "minecraft:set_count"
             }
           ],
-          "name": "copycatplusadditions:vertical_slope_layer"
+          "name": "copycatplusadditions:adv_slope_layer"
         }
       ],
       "rolls": 1.0
@@ -182,7 +182,7 @@
           "condition": "minecraft:survives_explosion"
         },
         {
-          "block": "copycatplusadditions:vertical_slope_layer",
+          "block": "copycats:copycat_slope_layer",
           "condition": "minecraft:block_state_property",
           "properties": {
             "layers": "7"
@@ -199,7 +199,7 @@
               "function": "minecraft:set_count"
             }
           ],
-          "name": "copycatplusadditions:vertical_slope_layer"
+          "name": "copycatplusadditions:adv_slope_layer"
         }
       ],
       "rolls": 1.0
@@ -211,7 +211,7 @@
           "condition": "minecraft:survives_explosion"
         },
         {
-          "block": "copycatplusadditions:vertical_slope_layer",
+          "block": "copycats:copycat_slope_layer",
           "condition": "minecraft:block_state_property",
           "properties": {
             "layers": "8"
@@ -228,11 +228,11 @@
               "function": "minecraft:set_count"
             }
           ],
-          "name": "copycatplusadditions:vertical_slope_layer"
+          "name": "copycatplusadditions:adv_slope_layer"
         }
       ],
       "rolls": 1.0
     }
   ],
-  "random_sequence": "copycatplusadditions:blocks/vertical_slope_layer"
+  "random_sequence": "copycats:blocks/copycat_slope_layer"
 }

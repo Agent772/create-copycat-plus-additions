@@ -66,7 +66,7 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
         if (placement == null) {
             return null;
         }
-        // Stacking another layer onto an existing vertical_slope_layer: the parent's
+        // Stacking another layer onto an existing adv_slope_layer: the parent's
         // getStateForPlacement already returned the cycled state of that block (which
         // preserves FACING/HALF/IN_WALL/WATERLOGGED). Return it as-is so a wall-placed
         // slope keeps IN_WALL=true when another layer is added.
@@ -127,7 +127,7 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
     // CCCopycatBlock implements Create's IBE<CCCopycatBlockEntity>; placement calls
     // getBlockEntityType().create(pos, state), which returns null if this block is not
     // in that type's validBlocks set. Copycats+' own copycat BE type is registered with
-    // only its own blocks, so we publish our own type — registered with VERTICAL_SLOPE_LAYER
+    // only its own blocks, so we publish our own type — registered with ADV_SLOPE_LAYER
     // in ModBlockEntities — to avoid a null BE (and the NPE that follows) on placement.
 
     @Override
@@ -137,7 +137,7 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
 
     @Override
     public BlockEntityType<? extends CCCopycatBlockEntity> getBlockEntityType() {
-        return ModBlockEntities.VERTICAL_SLOPE_LAYER.get();
+        return ModBlockEntities.ADV_SLOPE_LAYER.get();
     }
 
     @Override

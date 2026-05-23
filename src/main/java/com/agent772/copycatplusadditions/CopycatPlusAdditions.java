@@ -45,7 +45,7 @@ public class CopycatPlusAdditions {
         // The block belongs alongside Copycats+' own copycats, so display it in their
         // "main" (decorative) creative tab rather than the vanilla building-blocks tab.
         if (event.getTabKey() == CCCreativeTabs.getBaseTabKey()) {
-            event.accept(ModItems.VERTICAL_SLOPE_LAYER);
+            event.accept(ModItems.ADV_SLOPE_LAYER);
         }
     }
 

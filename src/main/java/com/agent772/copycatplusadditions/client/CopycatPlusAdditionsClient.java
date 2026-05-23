@@ -20,7 +20,7 @@ import net.neoforged.neoforge.client.event.ModelEvent;
  * <p>Copycats+ wires its custom block models through Create's Registrate
  * ({@code CCCustomModels} / {@code CreateRegistrate.blockModel}). This mod uses a plain
  * NeoForge {@code DeferredRegister}, so the equivalent model swap is performed manually
- * here: after baking, every {@code vertical_slope_layer} block-state model (a plain
+ * here: after baking, every {@code adv_slope_layer} block-state model (a plain
  * {@code minecraft:block/air} model, per the blockstate JSON) is wrapped in a
  * {@link CopycatVerticalSlopeLayerModelCore} so the slope geometry is emitted at render
  * time with the copycat material's texture.
@@ -40,8 +40,8 @@ public final class CopycatPlusAdditionsClient {
 
     private static void onModifyBakingResult(ModelEvent.ModifyBakingResult event) {
         Map<ModelResourceLocation, BakedModel> models = event.getModels();
-        Block block = ModBlocks.VERTICAL_SLOPE_LAYER.get();
-        ResourceLocation blockId = ModBlocks.VERTICAL_SLOPE_LAYER.getId();
+        Block block = ModBlocks.ADV_SLOPE_LAYER.get();
+        ResourceLocation blockId = ModBlocks.ADV_SLOPE_LAYER.getId();
 
         for (BlockState state : block.getStateDefinition().getPossibleStates()) {
             ModelResourceLocation location = BlockModelShaper.stateToModelLocation(blockId, state);
