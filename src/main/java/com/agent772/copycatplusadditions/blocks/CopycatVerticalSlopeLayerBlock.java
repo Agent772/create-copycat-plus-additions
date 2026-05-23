@@ -1,7 +1,9 @@
 package com.agent772.copycatplusadditions.blocks;
 
+import com.agent772.copycatplusadditions.registry.ModBlockEntities;
 import com.copycatsplus.copycats.CCShapes;
 import com.copycatsplus.copycats.content.copycat.slope_layer.CopycatSlopeLayerBlock;
+import com.copycatsplus.copycats.foundation.copycat.CCCopycatBlockEntity;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,6 +14,7 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -62,15 +65,49 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
         if (placement == null) {
             return null;
         }
-        // When stacking onto an existing vertical slope layer the parent's
-        // getStateForPlacement already returned the cycled state of that block, so
-        // IN_WALL is carried through unchanged. Detecting this prevents a wall-placed
-        // slope from flipping to a floor slope when another layer is added on top.
+        // Stacking another layer onto an existing vertical_slope_layer: the parent's
+        // getStateForPlacement already returned the cycled state of that block, with
+        // FACING/HALF/IN_WALL preserved. Return it as-is so a wall-placed slope keeps
+        // IN_WALL=true when another layer is added on top of it.
         if (context.getLevel().getBlockState(context.getClickedPos()).is(this)) {
             return placement;
         }
-        boolean inWall = context.getClickedFace().getAxis().isHorizontal();
-        return placement.setValue(IN_WALL, inWall);
+
+        Direction clickedFace = context.getClickedFace();
+        if (!clickedFace.getAxis().isHorizontal()) {
+            // Floor (UP) or ceiling (DOWN) click — parent's FACING/HALF are already correct.
+            return placement.setValue(IN_WALL, false);
+        }
+
+        // Wall click. The parent's FACING/HALF here come from the player's horizontal
+        // look direction and the cursor y, which has no relation to which wall face was
+        // actually clicked — we have to derive them ourselves.
+        // FACING points outward from the wall (same convention as vanilla wall-mounted
+        // blocks like ladders): the placed block sits on the +clickedFace side of the
+        // clicked block, with its back against the wall.
+        Direction facing = clickedFace;
+        double yOffset = context.getClickLocation().y - context.getClickedPos().getY();
+        Half half = yOffset > 0.5D ? Half.TOP : Half.BOTTOM;
+        return placement
+            .setValue(FACING, facing)
+            .setValue(HALF, half)
+            .setValue(IN_WALL, true);
+    }
+
+    // CCCopycatBlock implements Create's IBE<CCCopycatBlockEntity>; placement calls
+    // getBlockEntityType().create(pos, state), which returns null if this block is not
+    // in that type's validBlocks set. Copycats+' own copycat BE type is registered with
+    // only its own blocks, so we publish our own type — registered with VERTICAL_SLOPE_LAYER
+    // in ModBlockEntities — to avoid a null BE (and the NPE that follows) on placement.
+
+    @Override
+    public Class<CCCopycatBlockEntity> getBlockEntityClass() {
+        return CCCopycatBlockEntity.class;
+    }
+
+    @Override
+    public BlockEntityType<? extends CCCopycatBlockEntity> getBlockEntityType() {
+        return ModBlockEntities.VERTICAL_SLOPE_LAYER.get();
     }
 
     @Override
