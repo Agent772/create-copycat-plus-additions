@@ -4,9 +4,7 @@ import com.agent772.copycatplusadditions.client.CopycatPlusAdditionsClient;
 import com.agent772.copycatplusadditions.registry.ModBlockEntities;
 import com.agent772.copycatplusadditions.registry.ModBlocks;
 import com.agent772.copycatplusadditions.registry.ModItems;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
+import com.copycatsplus.copycats.CCCreativeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.common.Mod;
@@ -34,8 +32,9 @@ public class CopycatPlusAdditions {
     }
 
     private static void onBuildCreativeTabContents(BuildCreativeModeTabContentsEvent event) {
-        ResourceKey<CreativeModeTab> tab = event.getTabKey();
-        if (tab == CreativeModeTabs.BUILDING_BLOCKS) {
+        // The block belongs alongside Copycats+' own copycats, so display it in their
+        // "main" (decorative) creative tab rather than the vanilla building-blocks tab.
+        if (event.getTabKey() == CCCreativeTabs.getBaseTabKey()) {
             event.accept(ModItems.VERTICAL_SLOPE_LAYER);
         }
     }

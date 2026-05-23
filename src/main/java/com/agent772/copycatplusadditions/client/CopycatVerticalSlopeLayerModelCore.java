@@ -33,18 +33,19 @@ public class CopycatVerticalSlopeLayerModelCore extends CopycatSlopeLayerModelCo
         int layer = state.getValue(CopycatSlopeLayerBlock.LAYERS);
         Direction facing = state.getValue(CopycatSlopeLayerBlock.FACING);
         Half half = state.getValue(CopycatSlopeLayerBlock.HALF);
-
-        int wallAngle = CopycatVerticalSlopeLayerBlock.wallAngle(half);
-        boolean rotateAroundZ = facing.getAxis() == Direction.Axis.Z;
+        int wallAngle = CopycatVerticalSlopeLayerBlock.wallAngle(facing, half);
+        boolean rotateAroundZ = CopycatVerticalSlopeLayerBlock.wallRotateAroundZ(facing);
 
         // Mirrors CopycatSlopeLayerModelCore's transform, with the extra wall rotation
-        // appended after the standard FACING/HALF orientation.
+        // appended after the standard FACING/HALF orientation. The rotation axis/angle
+        // are sourced from CopycatVerticalSlopeLayerBlock so the visual geometry stays
+        // pinned to the block's collision shape.
         AssemblyTransform transform = t -> {
-            var oriented = t.rotateY((int) facing.toYRot()).flipY(half == Half.TOP);
+            t.rotateY((int) facing.toYRot()).flipY(half == Half.TOP);
             if (rotateAroundZ) {
-                oriented.rotateZ(wallAngle);
+                t.rotateZ(wallAngle);
             } else {
-                oriented.rotateX(wallAngle);
+                t.rotateX(wallAngle);
             }
         };
 

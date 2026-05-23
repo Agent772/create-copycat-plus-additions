@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
@@ -66,9 +67,9 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
             return null;
         }
         // Stacking another layer onto an existing vertical_slope_layer: the parent's
-        // getStateForPlacement already returned the cycled state of that block, with
-        // FACING/HALF/IN_WALL preserved. Return it as-is so a wall-placed slope keeps
-        // IN_WALL=true when another layer is added on top of it.
+        // getStateForPlacement already returned the cycled state of that block (which
+        // preserves FACING/HALF/IN_WALL/WATERLOGGED). Return it as-is so a wall-placed
+        // slope keeps IN_WALL=true when another layer is added.
         if (context.getLevel().getBlockState(context.getClickedPos()).is(this)) {
             return placement;
         }
@@ -81,10 +82,11 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
 
         // Wall click. The parent's FACING/HALF here come from the player's horizontal
         // look direction and the cursor y, which has no relation to which wall face was
-        // actually clicked — we have to derive them ourselves.
-        // FACING points outward from the wall (same convention as vanilla wall-mounted
-        // blocks like ladders): the placed block sits on the +clickedFace side of the
-        // clicked block, with its back against the wall.
+        // actually clicked — we have to derive them ourselves. This mirrors the design
+        // of upstream Copycats+ PR #273 (the vertical-slope-layer reference): the slope
+        // FACING points outward from the wall (same direction as the clicked face) and
+        // HALF is chosen by cursor Y, putting the narrow edge of the slope toward
+        // whichever side of the block the player was aiming at.
         Direction facing = clickedFace;
         double yOffset = context.getClickLocation().y - context.getClickedPos().getY();
         Half half = yOffset > 0.5D ? Half.TOP : Half.BOTTOM;
@@ -92,6 +94,34 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
             .setValue(FACING, facing)
             .setValue(HALF, half)
             .setValue(IN_WALL, true);
+    }
+
+    @Override
+    public boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
+        // The parent's canBeReplaced only allows stacking when the clicked face is the
+        // opposite of FACING (i.e. clicking the "back" of a floor slope). For wall-mounted
+        // slopes FACING already points outward from the wall, so the player is hitting
+        // the FACING face directly when they try to extend the slope outward — match
+        // upstream Copycats+ PR #273 by flipping the comparison for IN_WALL=true.
+        ItemStack itemInHand = context.getItemInHand();
+        if (!itemInHand.is(this.asItem())) {
+            return false;
+        }
+        if (state.getValue(LAYERS) == 8) {
+            return false;
+        }
+        Direction facing = state.getValue(FACING);
+        Half half = state.getValue(HALF);
+        boolean inWall = state.getValue(IN_WALL);
+        Direction clickedFace = context.getClickedFace();
+        if (inWall) {
+            if (clickedFace == facing) return true;
+        } else {
+            if (clickedFace == facing.getOpposite()) return true;
+        }
+        if (half == Half.TOP && clickedFace == Direction.DOWN) return true;
+        if (half == Half.BOTTOM && clickedFace == Direction.UP) return true;
+        return false;
     }
 
     // CCCopycatBlock implements Create's IBE<CCCopycatBlockEntity>; placement calls
@@ -125,25 +155,42 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
     }
 
     /**
-     * The rotation (in degrees) applied to turn a floor slope layer into a wall one.
-     *
-     * <p>Shared with {@code CopycatVerticalSlopeLayerModelCore} so that the collision
-     * shape and the rendered geometry always use the exact same transform.
+     * The rotation (in degrees) that tips the floor slope layer onto a vertical wall
+     * for the given FACING/HALF. Values are taken verbatim from upstream Copycats+
+     * PR #273's {@code CopycatSlopeLayerModelCore} (the reference design for vertical
+     * slope layers), so the collision shape here and the rendered geometry in
+     * {@code CopycatVerticalSlopeLayerModelCore} stay aligned.
      */
-    public static int wallAngle(Half half) {
-        return half == Half.TOP ? 270 : 90;
+    public static int wallAngle(Direction facing, Half half) {
+        return switch (facing) {
+            case NORTH -> half == Half.TOP ? 270 : 90;
+            case SOUTH -> half == Half.TOP ? 90 : 270;
+            case WEST -> half == Half.TOP ? 90 : 270;
+            case EAST -> half == Half.TOP ? 270 : 90;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Which axis to rotate around when tipping the slope onto a wall. NORTH/SOUTH
+     * facings (Z-axis) pivot around X; EAST/WEST facings (X-axis) pivot around Z —
+     * i.e. always the axis perpendicular to the wall normal.
+     */
+    public static boolean wallRotateAroundZ(Direction facing) {
+        return facing.getAxis() == Direction.Axis.X;
     }
 
     private static VoxelShape buildWallShape(Direction facing, Half half, int layers) {
         // Start from the parent slope-layer shape (already oriented by FACING/HALF)
-        // and tip it 90 degrees onto a vertical face. NORTH/SOUTH facings rotate
-        // around Z, EAST/WEST facings around X. copy() yields a fresh, unfrozen
+        // and tip it onto a vertical face using the same axis/angle the model core
+        // uses, so hitbox and visual geometry agree. copy() yields a fresh, unfrozen
         // MutableShape so the shared CCShapes entry is never mutated.
         CCShapes.MutableShape shape = CCShapes.SLOPE_LAYER.get(facing).get(half).get(layers).copy();
-        if (facing.getAxis() == Direction.Axis.Z) {
-            shape.rotateZ(wallAngle(half));
+        int angle = wallAngle(facing, half);
+        if (wallRotateAroundZ(facing)) {
+            shape.rotateZ(angle);
         } else {
-            shape.rotateX(wallAngle(half));
+            shape.rotateX(angle);
         }
         return shape.toShape();
     }
