@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "copycatplusadditions:inner_corner_slope"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "copycatplusadditions:blocks/inner_corner_slope"
+}

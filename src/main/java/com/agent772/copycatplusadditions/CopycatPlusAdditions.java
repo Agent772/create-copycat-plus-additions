@@ -59,6 +59,8 @@ public class CopycatPlusAdditions {
             return;
         }
         event.accept(ModItems.ADV_SLOPE_LAYER);
+        event.accept(ModItems.INNER_CORNER_SLOPE);
+        event.accept(ModItems.INNER_CORNER_SLOPE_LAYER);
         Item upstream = BuiltInRegistries.ITEM.get(UPSTREAM_SLOPE_LAYER_ID);
         if (upstream != Items.AIR) {
             event.remove(new ItemStack(upstream), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);

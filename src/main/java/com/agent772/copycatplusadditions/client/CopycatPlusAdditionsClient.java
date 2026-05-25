@@ -1,6 +1,7 @@
 package com.agent772.copycatplusadditions.client;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
 import com.agent772.copycatplusadditions.registry.ModBlocks;
 import com.copycatsplus.copycats.foundation.copycat.model.CopycatModelCore;
@@ -20,10 +21,9 @@ import net.neoforged.neoforge.client.event.ModelEvent;
  * <p>Copycats+ wires its custom block models through Create's Registrate
  * ({@code CCCustomModels} / {@code CreateRegistrate.blockModel}). This mod uses a plain
  * NeoForge {@code DeferredRegister}, so the equivalent model swap is performed manually
- * here: after baking, every {@code adv_slope_layer} block-state model (a plain
- * {@code minecraft:block/air} model, per the blockstate JSON) is wrapped in a
- * {@link CopycatVerticalSlopeLayerModelCore} so the slope geometry is emitted at render
- * time with the copycat material's texture.
+ * here: after baking, every block's plain {@code minecraft:block/air} blockstate model is
+ * wrapped in the matching {@link CopycatModelCore} so the slope geometry is emitted at
+ * render time with the copycat material's texture.
  *
  * <p>This class — and everything it imports — must only be touched on the physical
  * client; {@code CopycatPlusAdditions} guards the call to {@link #init(IEventBus)} with
@@ -40,14 +40,25 @@ public final class CopycatPlusAdditionsClient {
 
     private static void onModifyBakingResult(ModelEvent.ModifyBakingResult event) {
         Map<ModelResourceLocation, BakedModel> models = event.getModels();
-        Block block = ModBlocks.ADV_SLOPE_LAYER.get();
-        ResourceLocation blockId = ModBlocks.ADV_SLOPE_LAYER.getId();
+        swapModelCore(models, ModBlocks.ADV_SLOPE_LAYER.get(), ModBlocks.ADV_SLOPE_LAYER.getId(),
+            CopycatVerticalSlopeLayerModelCore::new);
+        swapModelCore(models, ModBlocks.INNER_CORNER_SLOPE.get(), ModBlocks.INNER_CORNER_SLOPE.getId(),
+            CopycatInnerCornerSlopeModelCore::new);
+        swapModelCore(models, ModBlocks.INNER_CORNER_SLOPE_LAYER.get(), ModBlocks.INNER_CORNER_SLOPE_LAYER.getId(),
+            CopycatInnerCornerSlopeLayerModelCore::new);
+    }
 
+    private static void swapModelCore(
+        Map<ModelResourceLocation, BakedModel> models,
+        Block block,
+        ResourceLocation blockId,
+        Supplier<? extends CopycatModelCore> coreFactory
+    ) {
         for (BlockState state : block.getStateDefinition().getPossibleStates()) {
             ModelResourceLocation location = BlockModelShaper.stateToModelLocation(blockId, state);
             BakedModel original = models.get(location);
             if (original != null) {
-                models.put(location, CopycatModelCore.createModel(original, new CopycatVerticalSlopeLayerModelCore()));
+                models.put(location, CopycatModelCore.createModel(original, coreFactory.get()));
             }
         }
     }

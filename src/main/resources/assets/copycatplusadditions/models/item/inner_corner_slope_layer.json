@@ -1,0 +1,72 @@
+{
+	"format_version": "1.21.1",
+	"credit": "Made with Blockbench",
+	"parent": "block/block",
+	"textures": {
+		"0": "copycatplusadditions:item/copycat_base",
+		"1": "copycatplusadditions:item/copycat_slope",
+		"particle": "copycatplusadditions:item/copycat_base"
+	},
+	"elements": [
+		{
+			"name": "Outer",
+			"from": [0, 0, 0],
+			"to": [16, 6.6, 16],
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 8, 8]},
+			"faces": {
+				"north": {"uv": [0, 0, 16, 16], "texture": "#1"},
+				"east": {"uv": [0, 0, 16, 16], "texture": "#0"},
+				"south": {"uv": [0, 0, 16, 16], "texture": "#0"},
+				"west": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#1"},
+				"down": {"uv": [0, 0, 16, 16], "texture": "#0"}
+			}
+		},
+		{
+			"name": "Slope1",
+			"from": [0, 4.10675, -0.86699],
+			"to": [16, 4.10675, 16.43301],
+			"rotation": {"angle": -22.5, "axis": "x", "origin": [8, 4.10675, 10.13301]},
+			"faces": {
+				"up": {"uv": [0, 0, 16, 16], "texture": "#1"}
+			}
+		},
+		{
+			"name": "Slope2",
+			"from": [-0.85355, 4.06066, 0],
+			"to": [16.44645, 4.06066, 16],
+			"rotation": {"angle": 22.5, "axis": "z", "origin": [10.06066, 4.06066, 8.06066]},
+			"faces": {
+				"up": {"uv": [0, 0, 16, 16], "rotation": 180, "texture": "#1"}
+			}
+		}
+	],
+	"display": {
+		"thirdperson_righthand": {
+			"rotation": [0, 110, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [0, -152, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"firstperson_righthand": {
+			"rotation": [0, 110, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"firstperson_lefthand": {
+			"rotation": [0, 145, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"ground": {
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"gui": {
+			"rotation": [23, 116, -4],
+			"scale": [0.7, 0.7, 0.7]
+		},
+		"on_shelf": {
+			"rotation": [0, 90, 0],
+			"translation": [0, 0, 4]
+		}
+	}
+}
