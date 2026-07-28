@@ -1,0 +1,88 @@
+{
+	"parent": "block/block",
+	"textures": {
+		"base": "copycatplusadditions:item/copycat_base",
+		"slope": "copycatplusadditions:item/copycat_slope",
+		"particle": "copycatplusadditions:item/copycat_base"
+	},
+	"elements": [
+		{
+			"name": "Bottom",
+			"from": [0, 0, 0],
+			"to": [16, 2, 16],
+			"faces": {
+				"down": {"uv": [0, 0, 16, 16], "texture": "#base"},
+				"north": {"uv": [0, 14, 16, 16], "texture": "#base"},
+				"east": {"uv": [0, 14, 16, 16], "texture": "#base"},
+				"south": {"uv": [0, 14, 16, 16], "texture": "#base"},
+				"west": {"uv": [0, 14, 16, 16], "texture": "#base"}
+			}
+		},
+		{
+			"name": "EastWall",
+			"from": [14, 0, 0],
+			"to": [16, 16, 16],
+			"faces": {
+				"east": {"uv": [0, 0, 16, 16], "texture": "#base"},
+				"north": {"uv": [0, 0, 2, 16], "texture": "#base"},
+				"south": {"uv": [14, 0, 16, 16], "texture": "#base"}
+			}
+		},
+		{
+			"name": "NorthWall",
+			"from": [0, 0, 0],
+			"to": [14, 16, 2],
+			"faces": {
+				"north": {"uv": [0, 0, 14, 16], "texture": "#base"},
+				"west": {"uv": [0, 0, 2, 16], "texture": "#base"}
+			}
+		},
+		{
+			"name": "Slope",
+			"from": [0, -2, 16],
+			"to": [14, 18, 16],
+			"rotation": {"angle": 45, "axis": "x", "origin": [7, 8, 16]},
+			"faces": {
+				"south": {"uv": [0, 0, 14, 16], "texture": "#slope"}
+			}
+		},
+		{
+			"name": "Slope2",
+			"from": [16, -2, 2],
+			"to": [16, 18, 16],
+			"rotation": {"angle": -45, "axis": "z", "origin": [16, 8, 9]},
+			"faces": {
+				"east": {"uv": [0, 0, 14, 16], "texture": "#slope"}
+			}
+		}
+	],
+	"display": {
+		"thirdperson_righthand": {
+			"rotation": [0, 110, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [0, -152, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"firstperson_righthand": {
+			"rotation": [0, 110, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"firstperson_lefthand": {
+			"rotation": [0, 145, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"ground": {
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"gui": {
+			"rotation": [23, 116, -4],
+			"scale": [0.7, 0.7, 0.7]
+		},
+		"on_shelf": {
+			"rotation": [0, 90, 0],
+			"translation": [0, 0, 4]
+		}
+	}
+}

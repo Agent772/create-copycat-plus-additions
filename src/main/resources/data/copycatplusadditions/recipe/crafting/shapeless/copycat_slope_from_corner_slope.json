@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    {
+      "item": "copycatplusadditions:corner_slope"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "copycats:copycat_slope"
+  }
+}

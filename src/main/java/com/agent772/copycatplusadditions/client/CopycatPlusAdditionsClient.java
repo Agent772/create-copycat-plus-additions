@@ -46,6 +46,10 @@ public final class CopycatPlusAdditionsClient {
             CopycatInnerCornerSlopeModelCore::new);
         swapModelCore(models, ModBlocks.INNER_CORNER_SLOPE_LAYER.get(), ModBlocks.INNER_CORNER_SLOPE_LAYER.getId(),
             CopycatInnerCornerSlopeLayerModelCore::new);
+        swapModelCore(models, ModBlocks.CORNER_SLOPE.get(), ModBlocks.CORNER_SLOPE.getId(),
+            CopycatCornerSlopeModelCore::new);
+        swapModelCore(models, ModBlocks.CORNER_SLOPE_LAYER.get(), ModBlocks.CORNER_SLOPE_LAYER.getId(),
+            CopycatCornerSlopeLayerModelCore::new);
     }
 
     private static void swapModelCore(

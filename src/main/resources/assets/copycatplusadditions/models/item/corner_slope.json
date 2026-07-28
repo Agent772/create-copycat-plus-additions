@@ -1,10 +1,8 @@
 {
-	"format_version": "1.21.11",
-	"credit": "Made with Blockbench",
-	"parent": "copycatplusadditions:block/inner_corner_slope",
+	"parent": "block/block",
 	"textures": {
-		"0": "copycatplusadditions:item/copycat_slope",
-		"1": "copycatplusadditions:item/copycat_base",
+		"slope": "copycatplusadditions:item/copycat_slope",
+		"base": "copycatplusadditions:item/copycat_base",
 		"particle": "copycatplusadditions:item/copycat_slope"
 	},
 	"elements": [
@@ -13,9 +11,9 @@
 			"from": [0, 0, 0],
 			"to": [16, 16, 16],
 			"faces": {
-				"east": {"uv": [0, 0, 16, 16], "texture": "#0"},
-				"south": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#0"},
-				"down": {"uv": [0, 0, 16, 16], "texture": "#1"}
+				"east": {"uv": [0, 0, 16, 16], "texture": "#slope"},
+				"south": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#slope"},
+				"down": {"uv": [0, 0, 16, 16], "texture": "#base"}
 			}
 		},
 		{
@@ -23,7 +21,7 @@
 			"to": [6, 20.5, 16],
 			"rotation": {"angle": -45, "axis": "z", "origin": [5, 6, 8]},
 			"faces": {
-				"west": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#0"}
+				"west": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#slope"}
 			}
 		},
 		{
@@ -31,7 +29,7 @@
 			"to": [16, 19.5, 6],
 			"rotation": {"angle": 45, "axis": "x", "origin": [8, 6, 6]},
 			"faces": {
-				"north": {"uv": [0, 0, 16, 16], "texture": "#0"}
+				"north": {"uv": [0, 0, 16, 16], "texture": "#slope"}
 			}
 		}
 	],

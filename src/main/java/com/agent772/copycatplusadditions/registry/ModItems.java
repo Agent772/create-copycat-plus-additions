@@ -18,4 +18,10 @@ public class ModItems {
 
     public static final DeferredItem<BlockItem> INNER_CORNER_SLOPE_LAYER =
         ITEMS.registerSimpleBlockItem(ModBlocks.INNER_CORNER_SLOPE_LAYER);
+
+    public static final DeferredItem<BlockItem> CORNER_SLOPE =
+        ITEMS.registerSimpleBlockItem(ModBlocks.CORNER_SLOPE);
+
+    public static final DeferredItem<BlockItem> CORNER_SLOPE_LAYER =
+        ITEMS.registerSimpleBlockItem(ModBlocks.CORNER_SLOPE_LAYER);
 }

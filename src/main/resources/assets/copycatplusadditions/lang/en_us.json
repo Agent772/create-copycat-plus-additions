@@ -1,5 +1,7 @@
 {
   "block.copycatplusadditions.adv_slope_layer": "Copycat: Adv. Slope Layer",
   "block.copycatplusadditions.inner_corner_slope": "Copycat Inner Corner Slope",
-  "block.copycatplusadditions.inner_corner_slope_layer": "Copycat Inner Corner Slope Layer"
+  "block.copycatplusadditions.inner_corner_slope_layer": "Copycat Inner Corner Slope Layer",
+  "block.copycatplusadditions.corner_slope": "Copycat Corner Slope",
+  "block.copycatplusadditions.corner_slope_layer": "Copycat Corner Slope Layer"
 }

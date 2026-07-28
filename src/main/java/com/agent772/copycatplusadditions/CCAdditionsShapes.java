@@ -42,19 +42,68 @@ public final class CCAdditionsShapes {
 
     private static final int STEPS = 8;
 
+    /*
+     * All shapes are precomputed once per block-state combination. getShape is
+     * queried per collision check and per frame (block outline, particle
+     * physics, hidesNeighborFace); building an OutlinedShape on every call
+     * (8x Shapes.or + optimize + reflection) caused visible client lag, e.g.
+     * from the destroy-particle burst when wrenching off the mimic material.
+     */
+    private static final Direction[] HORIZONTALS =
+        {Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST};
+
+    private static final VoxelShape[] INNER_CORNER_SLOPE = new VoxelShape[8];
+    private static final VoxelShape[] CORNER_SLOPE = new VoxelShape[8];
+    private static final VoxelShape[] INNER_CORNER_SLOPE_LAYER = new VoxelShape[64];
+    private static final VoxelShape[] CORNER_SLOPE_LAYER = new VoxelShape[64];
+
+    static {
+        for (Direction facing : HORIZONTALS) {
+            int[] nc = notchCorner(facing);
+            int[] ac = apexCorner(facing);
+            for (Half half : Half.values()) {
+                boolean top = half == Half.TOP;
+                int i = index(facing, half);
+                INNER_CORNER_SLOPE[i] = buildShape(nc[0], nc[1], top, 1.0);
+                CORNER_SLOPE[i] = buildCornerShape(ac[0], ac[1], top, 1.0);
+                for (int layers = 1; layers <= 8; layers++) {
+                    int li = i * 8 + (layers - 1);
+                    INNER_CORNER_SLOPE_LAYER[li] = buildShape(nc[0], nc[1], top, layers * 2.0 / 16.0);
+                    CORNER_SLOPE_LAYER[li] = buildCornerShape(ac[0], ac[1], top, layers * 2.0 / 16.0);
+                }
+            }
+        }
+    }
+
+    private static int index(Direction facing, Half half) {
+        return facing.get2DDataValue() * 2 + half.ordinal();
+    }
+
     public static VoxelShape innerCornerSlope(Direction facing, Half half) {
-        int[] nc = notchCorner(facing);
-        return buildShape(nc[0], nc[1], half == Half.TOP, 1.0);
+        return INNER_CORNER_SLOPE[index(facing, half)];
     }
 
     public static VoxelShape innerCornerSlopeLayer(Direction facing, Half half, int layers) {
-        int[] nc = notchCorner(facing);
-        return buildShape(nc[0], nc[1], half == Half.TOP, layers * 2.0 / 16.0);
+        return INNER_CORNER_SLOPE_LAYER[index(facing, half) * 8 + (layers - 1)];
+    }
+
+    public static VoxelShape cornerSlope(Direction facing, Half half) {
+        return CORNER_SLOPE[index(facing, half)];
+    }
+
+    public static VoxelShape cornerSlopeLayer(Direction facing, Half half, int layers) {
+        return CORNER_SLOPE_LAYER[index(facing, half) * 8 + (layers - 1)];
     }
 
     private static VoxelShape buildShape(int nx, int nz, boolean topHalf, double maxH) {
         VoxelShape staircase = buildStaircase(nx, nz, topHalf, maxH).optimize();
         double[] edges = buildEdges(nx, nz, topHalf, maxH);
+        return new OutlinedShape(staircase, edges);
+    }
+
+    private static VoxelShape buildCornerShape(int ax, int az, boolean topHalf, double maxH) {
+        VoxelShape staircase = buildCornerStaircase(ax, az, topHalf, maxH).optimize();
+        double[] edges = buildCornerEdges(ax, az, topHalf, maxH);
         return new OutlinedShape(staircase, edges);
     }
 
@@ -95,6 +144,40 @@ public final class CCAdditionsShapes {
             double zBx = (nz == 0) ? t    : 1.0;
             if (xBx > xB && zBx > zB) {
                 shape = Shapes.or(shape, Shapes.box(xB, blockYLo, zB, xBx, blockYHi, zBx));
+            }
+        }
+        return shape;
+    }
+
+    // -------------------------------------------------------------------------
+    // Outer corner staircase (physics / hidesNeighborFace)
+    // -------------------------------------------------------------------------
+
+    /**
+     * 8-step staircase approximation of the outer corner slope.
+     *
+     * The slope surface at normalised coords (x,z) is min(dx, dz) * maxH where
+     * dx, dz are distances from the apex corner measured toward the apex. At
+     * each step i the solid region is a single rectangle shrinking toward the
+     * apex -- one Shapes.box per step, not an L-shape.
+     */
+    private static VoxelShape buildCornerStaircase(int ax, int az, boolean topHalf, double maxH) {
+        VoxelShape shape = Shapes.empty();
+        for (int i = 0; i < STEPS; i++) {
+            double t       = (double) i / STEPS;
+            double yLo     = (double) i / STEPS * maxH;
+            double yHi     = (double) (i + 1) / STEPS * maxH;
+
+            double blockYLo = topHalf ? (1.0 - yHi) : yLo;
+            double blockYHi = topHalf ? (1.0 - yLo) : yHi;
+
+            double xLo = (ax == 0) ? 0.0 : t;
+            double xHi = (ax == 0) ? (1.0 - t) : 1.0;
+            double zLo = (az == 0) ? 0.0 : t;
+            double zHi = (az == 0) ? (1.0 - t) : 1.0;
+
+            if (xHi > xLo && zHi > zLo) {
+                shape = Shapes.or(shape, Shapes.box(xLo, blockYLo, zLo, xHi, blockYHi, zHi));
             }
         }
         return shape;
@@ -156,6 +239,49 @@ public final class CCAdditionsShapes {
     }
 
     // -------------------------------------------------------------------------
+    // Outer corner wireframe edges
+    // -------------------------------------------------------------------------
+
+    /**
+     * The 8 wireframe edges of the outer corner slope as a flat double[] (6
+     * doubles per edge: x1,y1,z1,x2,y2,z2).
+     *
+     * A = apex corner (full height), B and C = adjacent corners (zero height,
+     * form the two visible triangular faces), D = opposite corner (zero height,
+     * the slope ridge goes from D at the bottom to A at the top).
+     */
+    private static double[] buildCornerEdges(int ax, int az, boolean topHalf, double maxH) {
+        double aXp = ax,     aZp = az;
+        double bXp = 1 - ax, bZp = az;
+        double cXp = ax,     cZp = 1 - az;
+        double dXp = 1 - ax, dZp = 1 - az;
+
+        double flat  = topHalf ? 1.0 : 0.0;
+        double fullY = topHalf ? (1.0 - maxH) : maxH;
+
+        List<double[]> e = new ArrayList<>(8);
+
+        // 4 bottom (flat face) edges
+        e.add(new double[]{0, flat, 0,   1, flat, 0});
+        e.add(new double[]{1, flat, 0,   1, flat, 1});
+        e.add(new double[]{1, flat, 1,   0, flat, 1});
+        e.add(new double[]{0, flat, 1,   0, flat, 0});
+        // Apex vertical edge
+        e.add(new double[]{aXp, flat, aZp,   aXp, fullY, aZp});
+        // Two adjacent face diagonals (B and C to apex top)
+        e.add(new double[]{bXp, flat, bZp,   aXp, fullY, aZp});
+        e.add(new double[]{cXp, flat, cZp,   aXp, fullY, aZp});
+        // Slope ridge (opposite corner D to apex top)
+        e.add(new double[]{dXp, flat, dZp,   aXp, fullY, aZp});
+
+        double[] flat_array = new double[8 * 6];
+        for (int i = 0; i < 8; i++) {
+            System.arraycopy(e.get(i), 0, flat_array, i * 6, 6);
+        }
+        return flat_array;
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -168,6 +294,24 @@ public final class CCAdditionsShapes {
      * @return int[]{nx, nz} where 1 means the notch is at the high end of that axis
      */
     private static int[] notchCorner(Direction facing) {
+        return switch (facing) {
+            case SOUTH -> new int[]{1, 0}; // NE
+            case WEST  -> new int[]{1, 1}; // SE
+            case NORTH -> new int[]{0, 1}; // SW
+            case EAST  -> new int[]{0, 0}; // NW
+            default    -> new int[]{1, 0};
+        };
+    }
+
+    /**
+     * Maps a horizontal facing to the apex corner of the outer corner slope --
+     * the corner that reaches full height. The apex is the same corner as the
+     * inner corner's notch for the same FACING, so that paired inner and outer
+     * corner slopes with identical FACING and HALF interlock into a full block.
+     *
+     * @return int[]{ax, az} where 1 means the apex is at the high end of that axis
+     */
+    private static int[] apexCorner(Direction facing) {
         return switch (facing) {
             case SOUTH -> new int[]{1, 0}; // NE
             case WEST  -> new int[]{1, 1}; // SE
