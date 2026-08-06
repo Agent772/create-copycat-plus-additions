@@ -17,4 +17,4 @@ jobs:
       - name: Push to GitHub
         run: |
           git remote add github https://Agent772:${{ secrets.GITHUB }}@github.com/Agent772/create-copycat-plus-additions.git
-          git push github HEAD:${{ github.ref_name }}
+          git push --force github HEAD:${{ github.ref_name }}
