@@ -30,6 +30,12 @@ import net.neoforged.api.distmarker.OnlyIn;
  * on <i>both</i> wings, the same way a straight slope textures its sloped
  * face. Rotation-symmetric sprites (e.g. log growth rings) are unaffected.
  *
+ * <p>The {@code eave} passed in is chosen per block from the
+ * {@code ROOF_ROTATED} blockstate property: the default look uses each wing's
+ * natural eave, and the rotated look advances both eaves one quarter turn so
+ * the grain runs up the slope instead. This class stays a pure projection —
+ * the orientation decision lives in the caller.
+ *
  * <p>Properties preserved from the plain projection: the sprite's border rows
  * land on the block's outer edges (eave + sides), never on the ridge; the
  * ridge lies on a sprite diagonal; texel density is 1:1 with a straight

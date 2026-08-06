@@ -56,14 +56,30 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
     public void emitCopycatQuads(String key, BlockState state, CopycatRenderContext context, BlockState material) {
         Direction facing = state.getValue(CopycatInnerCornerSlopeBlock.FACING);
         Half half = state.getValue(CopycatInnerCornerSlopeBlock.HALF);
-        assembleInnerCorner(context, facing, half, 16.0);
+        boolean roofRotated = state.getValue(CopycatInnerCornerSlopeBlock.ROOF_ROTATED);
+        assembleInnerCorner(context, facing, half, 16.0, roofRotated);
     }
 
-    static void assembleInnerCorner(CopycatRenderContext context, Direction facing, Half half, double maxHeight) {
+    static void assembleInnerCorner(CopycatRenderContext context, Direction facing, Half half, double maxHeight,
+                                    boolean roofRotated) {
         int yRot = (int) facing.toYRot();
         boolean topHalf = half == Half.TOP;
         final double h = maxHeight;
         AssemblyTransform transform = t -> t.rotateY(yRot).flipY(topHalf);
+
+        // Roof UV: per-wing top-down projection rotated so the sprite's bottom edge
+        // lies on each wing's own LOCAL eave — grain runs parallel to the eave on
+        // both wings, so the two visible slope faces read identically (like a
+        // straight slope) instead of one showing grain across the slope. See the
+        // ProjectRoofUV Javadoc. When ROOF_ROTATED is set, each wing's eave is
+        // advanced one quarter turn (getClockWise), turning both projections 90
+        // degrees so directional grain runs up the slope instead. The projection is
+        // 180-degree symmetric, so a single boolean covers both distinct looks.
+        // Piece 1 slopes down to the LOCAL north edge; piece 2 to the LOCAL east edge.
+        Direction eave1 = roofRotated ? Direction.NORTH.getClockWise() : Direction.NORTH;
+        Direction eave2 = roofRotated ? Direction.EAST.getClockWise() : Direction.EAST;
+        ProjectRoofUV roofUV1 = new ProjectRoofUV(eave1);
+        ProjectRoofUV roofUV2 = new ProjectRoofUV(eave2);
 
         // Piece 1: planar slope along Z. Low at z=0 (north), high at z=1 (south).
         // The slope function only depends on b (=z), so the UP face quad's heights
@@ -73,7 +89,8 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
             vec3(0, 0, 0),
             aabb(16, 16, 16),
             cull(MutableCullFace.NORTH | MutableCullFace.WEST),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, 0, h, b)))
+            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, 0, h, b))),
+            roofUV1
         );
 
         // Piece 2: planar slope along X. Low at x=1 (east), high at x=0 (west).
@@ -84,7 +101,8 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
             vec3(0, 0, 0),
             aabb(16, 16, 16),
             cull(MutableCullFace.EAST | MutableCullFace.SOUTH),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, h, 0, a)))
+            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, h, 0, a))),
+            roofUV2
         );
     }
 }

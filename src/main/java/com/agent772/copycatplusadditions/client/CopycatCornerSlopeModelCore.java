@@ -148,10 +148,12 @@ public class CopycatCornerSlopeModelCore extends CopycatModelCore {
     public void emitCopycatQuads(String key, BlockState state, CopycatRenderContext context, BlockState material) {
         Direction facing = state.getValue(CopycatCornerSlopeBlock.FACING);
         Half half = state.getValue(CopycatCornerSlopeBlock.HALF);
-        assembleCornerSlope(context, facing, half, 16.0);
+        boolean roofRotated = state.getValue(CopycatCornerSlopeBlock.ROOF_ROTATED);
+        assembleCornerSlope(context, facing, half, 16.0, roofRotated);
     }
 
-    static void assembleCornerSlope(CopycatRenderContext context, Direction facing, Half half, double maxHeight) {
+    static void assembleCornerSlope(CopycatRenderContext context, Direction facing, Half half, double maxHeight,
+                                    boolean roofRotated) {
         int yRot = (int) facing.getClockWise().toYRot();
         boolean topHalf = half == Half.TOP;
         final double h = maxHeight;
@@ -160,8 +162,14 @@ public class CopycatCornerSlopeModelCore extends CopycatModelCore {
         // Roof UV: per-wing top-down projection rotated so the sprite's bottom
         // edge lies on each wing's own LOCAL eave — grain runs parallel to the
         // eave on both wings, on every facing. See the ProjectRoofUV Javadoc.
-        ProjectRoofUV roofUV1 = new ProjectRoofUV(Direction.EAST);
-        ProjectRoofUV roofUV2 = new ProjectRoofUV(Direction.SOUTH);
+        // When ROOF_ROTATED is set, each wing's eave is advanced one quarter turn
+        // (getClockWise), turning the projection 90 degrees so directional grain
+        // runs up the slope instead of along the eave. The roof projection is
+        // 180-degree symmetric, so a single boolean covers both distinct looks.
+        Direction eave1 = roofRotated ? Direction.EAST.getClockWise() : Direction.EAST;
+        Direction eave2 = roofRotated ? Direction.SOUTH.getClockWise() : Direction.SOUTH;
+        ProjectRoofUV roofUV1 = new ProjectRoofUV(eave1);
+        ProjectRoofUV roofUV2 = new ProjectRoofUV(eave2);
 
         // Piece 1 — NE wing: planar X-slope. Slope's full apex is the west edge
         // (NW + SW both at y=h). Collapsing SW(0,1) onto NW(0,0) leaves a single

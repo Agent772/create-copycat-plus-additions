@@ -1,17 +1,26 @@
 package com.agent772.copycatplusadditions.blocks;
 
 import com.agent772.copycatplusadditions.CCAdditionsShapes;
+import com.agent772.copycatplusadditions.config.ServerConfig;
 import com.agent772.copycatplusadditions.registry.ModBlockEntities;
 import com.copycatsplus.copycats.foundation.copycat.CCCopycatBlockEntity;
 import com.copycatsplus.copycats.foundation.copycat.CCWaterloggedCopycatBlock;
 import com.copycatsplus.copycats.foundation.copycat.ICopycatBlock;
+import com.copycatsplus.copycats.foundation.copycat.ICopycatBlockEntity;
 import com.copycatsplus.copycats.utility.BlockUtils;
 import com.simibubi.create.content.contraptions.StructureTransform;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -19,11 +28,13 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -42,6 +53,16 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<Half> HALF = BlockStateProperties.HALF;
 
+    /**
+     * When {@code true}, the sloped-roof texture projection is turned a quarter
+     * turn so directional grain (e.g. planks) runs up the slope instead of along
+     * the eave. Only two states are visually distinct because the top-down roof
+     * projection is 180-degree symmetric, so a boolean covers every meaningful
+     * orientation. The flag describes the projection axis rather than a world
+     * direction, so it is invariant under block rotation and mirroring.
+     */
+    public static final BooleanProperty ROOF_ROTATED = BooleanProperty.create("roof_rotated");
+
     public CopycatCornerSlopeBlock() {
         this(BlockBehaviour.Properties.of()
             .mapColor(MapColor.METAL)
@@ -55,12 +76,13 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
         super(properties);
         registerDefaultState(defaultBlockState()
             .setValue(FACING, Direction.NORTH)
-            .setValue(HALF, Half.BOTTOM));
+            .setValue(HALF, Half.BOTTOM)
+            .setValue(ROOF_ROTATED, false));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, HALF);
+        builder.add(FACING, HALF, ROOF_ROTATED);
         super.createBlockStateDefinition(builder);
     }
 
@@ -88,6 +110,46 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
             return lookZ > 0 ? Direction.WEST : Direction.SOUTH; // apex SE : NE
         }
         return lookZ > 0 ? Direction.NORTH : Direction.EAST;     // apex SW : NW
+    }
+
+    /**
+     * Adds a "rotate the roof texture" gesture on top of the upstream copycat
+     * interactions. The whole upstream chain runs first via {@code super}; we
+     * only act when it declined (returned a non-consuming result). That happens
+     * for the exact case this feature targets: the player right-clicked with the
+     * block's <i>current</i> material and Copycats+ had no material property to
+     * cycle (uniform materials such as planks). In that case we toggle
+     * {@link #ROOF_ROTATED} instead. Every other path — applying a new material,
+     * cycling a directional material (logs), wrench use, CT toggle — is handled
+     * inside {@code super} and returns before we reach the toggle.
+     */
+    @Override
+    public ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
+                                           Player player, InteractionHand hand, BlockHitResult hitResult) {
+        ItemInteractionResult upstream = super.useItemOn(stack, state, level, pos, player, hand, hitResult);
+        if (upstream.consumesAction()) {
+            return upstream;
+        }
+        if (!ServerConfig.enableExtraRotation() || player == null || !player.mayBuild()) {
+            return upstream;
+        }
+        // Non-copycat block items map to a material state; the block's own item and
+        // anything unacceptable map to null. Filtering on a match with the stored
+        // material reproduces the upstream "same material" branch exactly, so the
+        // toggle only fires when the upstream cycle had nothing to do.
+        BlockState material = getAcceptedBlockState(level, pos, stack, hitResult.getDirection());
+        if (material == null) {
+            return upstream;
+        }
+        ICopycatBlockEntity copycatBE = getCopycatBlockEntity(level, pos);
+        if (copycatBE == null || !copycatBE.getMaterial().is(material.getBlock())) {
+            return upstream;
+        }
+        if (!level.isClientSide()) {
+            level.setBlockAndUpdate(pos, state.cycle(ROOF_ROTATED));
+            level.playSound(null, pos, SoundEvents.ITEM_FRAME_ROTATE_ITEM, SoundSource.BLOCKS, 0.75F, 0.95F);
+        }
+        return ItemInteractionResult.SUCCESS;
     }
 
     @Override

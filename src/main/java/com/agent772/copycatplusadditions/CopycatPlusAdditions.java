@@ -1,6 +1,7 @@
 package com.agent772.copycatplusadditions;
 
 import com.agent772.copycatplusadditions.client.CopycatPlusAdditionsClient;
+import com.agent772.copycatplusadditions.config.ServerConfig;
 import com.agent772.copycatplusadditions.registry.ModBlockEntities;
 import com.agent772.copycatplusadditions.registry.ModBlocks;
 import com.agent772.copycatplusadditions.registry.ModItems;
@@ -14,7 +15,9 @@ import net.minecraft.world.item.Items;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
@@ -26,10 +29,15 @@ public class CopycatPlusAdditions {
     private static final ResourceLocation UPSTREAM_SLOPE_LAYER_ID =
         ResourceLocation.fromNamespaceAndPath("copycats", "copycat_slope_layer");
 
-    public CopycatPlusAdditions(IEventBus modEventBus) {
+    public CopycatPlusAdditions(IEventBus modEventBus, ModContainer modContainer) {
         ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+
+        // Server-side config: gates the per-block roof-texture rotation gesture. The
+        // stored blockstate property is always honoured at render time, so this only
+        // controls whether the toggle interaction is available.
+        modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
 
         // Single listener at LOWEST priority: Copycats+ populates the Copycats+ tab
         // at NORMAL, so by the time this fires the upstream copycat_slope_layer entry

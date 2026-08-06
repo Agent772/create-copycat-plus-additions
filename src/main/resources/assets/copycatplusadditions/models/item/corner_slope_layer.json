@@ -12,49 +12,50 @@
 			"name": "Outer",
 			"from": [0, 0, 0],
 			"to": [16, 6.6, 16],
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 8, 8]},
 			"faces": {
-				"east": {"uv": [0, 0, 16, 16], "texture": "#slope"},
-				"south": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#slope"},
+				"south": {"uv": [0, 0, 16, 16], "texture": "#slope"},
+				"west": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#slope"},
 				"down": {"uv": [0, 0, 16, 16], "texture": "#base"}
 			}
 		},
 		{
 			"name": "Slope1",
-			"from": [6, -2.5, 0],
-			"to": [6, 14.5, 16],
-			"rotation": {"x": 0, "y": 0, "z": -70, "origin": [5, 3, 8]},
+			"from": [0, 4.10675, -0.86699],
+			"to": [16, 4.10675, 16.43301],
+			"rotation": {"angle": -22.5, "axis": "x", "origin": [8, 4.10675, 10.13301]},
 			"faces": {
-				"west": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#slope"}
+				"up": {"uv": [0, 0, 16, 16], "rotation": 90, "texture": "#slope"}
 			}
 		},
 		{
 			"name": "Slope2",
-			"from": [0, -5.5, 8],
-			"to": [16, 11.5, 8],
-			"rotation": {"x": 67.5, "y": 0, "z": 0, "origin": [8, 3, 8]},
+			"from": [-0.85355, 2.26066, 0],
+			"to": [15.44645, 2.26066, 16],
+			"rotation": {"angle": -22.5, "axis": "z", "origin": [10.06066, 2.26066, 8.06066]},
 			"faces": {
-				"north": {"uv": [0, 0, 16, 16], "texture": "#slope"}
+				"up": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#slope"}
 			}
 		}
 	],
 	"display": {
 		"thirdperson_righthand": {
-			"rotation": [0, 120, 0],
+			"rotation": [7, -134, 0],
 			"translation": [0.25, 2, -2.75],
 			"scale": [0.5, 0.5, 0.5]
 		},
 		"thirdperson_lefthand": {
-			"rotation": [0, -120, 0],
+			"rotation": [0, 141, 0],
 			"translation": [0, 2, -2],
 			"scale": [0.5, 0.5, 0.5]
 		},
 		"firstperson_righthand": {
-			"rotation": [0, 120, 0],
+			"rotation": [0, -159, 0],
 			"translation": [0, 3, 0],
 			"scale": [0.5, 0.5, 0.5]
 		},
 		"firstperson_lefthand": {
-			"rotation": [0, -160, 0],
+			"rotation": [0, 113, 0],
 			"translation": [0, 2, -1.5],
 			"scale": [0.5, 0.5, 0.5]
 		},
@@ -62,7 +63,7 @@
 			"translation": [0, 3, 0]
 		},
 		"gui": {
-			"rotation": [17, 77, 0],
+			"rotation": [17, -82, 0],
 			"translation": [0, 2.75, 0],
 			"scale": [0.7, 0.7, 0.7]
 		},
