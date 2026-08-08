@@ -1,6 +1,7 @@
 package com.agent772.copycatplusadditions.foundation;
 
 import com.agent772.copycatplusadditions.compat.sable.SableBeyondCompat;
+import com.agent772.copycatplusadditions.compat.sable.SableClientCompat;
 import com.copycatsplus.copycats.foundation.copycat.CCCopycatBlockEntity;
 
 import net.minecraft.core.BlockPos;
@@ -27,7 +28,10 @@ import net.minecraft.world.level.block.state.BlockState;
  *       change hooks push nothing then; this closes the gap for copycats skinned
  *       before Sable Beyond was installed / dynamic mass was enabled, and
  *       self-heals if Sable Beyond's SavedData is ever lost. Gated on
- *       {@code hasCustomMaterial()} so unskinned copycats don't churn clears.</li>
+ *       {@code hasCustomMaterial()} so unskinned copycats don't churn clears.
+ *       {@link #onLoad} also drives the client-side Sable sub-level re-mesh for
+ *       issue #30 (see {@link SableClientCompat}); that path is ungated because
+ *       unskinned copycats are invisible on join too.</li>
  * </ul>
  *
  * <p>All hooks are guarded server-side: {@code setMaterialInternal} is also
@@ -58,6 +62,9 @@ public class CCAdditionsCopycatBlockEntity extends CCCopycatBlockEntity {
         if (hasCustomMaterial()) {
             notifySable();
         }
+        // Issue #30: on the client, re-mesh the owning Sable sub-level section (see
+        // SableClientHandler). No-op off the client, without Sable, or outside a sub-level.
+        SableClientCompat.onCopycatLoadedClient(getLevel(), getBlockPos());
     }
 
     private void notifySable() {

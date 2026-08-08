@@ -107,9 +107,10 @@ dependencies {
     localRuntime "maven.modrinth:copycats:${copycats_version}"
     localRuntime "maven.modrinth:create:${create_version}"
     // localRuntime Sable + Sable Beyond so the dev instance can exercise the dynamic
-    // mass integration; both are optional at runtime for shipped users.
-    // localRuntime "maven.modrinth:sable:${sable_version}"
-    // localRuntime "maven.modrinth:sable_beyond:${sable_beyond_version}"
+    // mass integration (issue #27) and the sub-level render fix (issue #30); both are
+    // optional at runtime for shipped users.
+    localRuntime "maven.modrinth:sable:${sable_version}"
+    localRuntime "maven.modrinth:sable_beyond:${sable_beyond_version}"
     localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
     localRuntime("maven.modrinth:jade:${jade_version}")
 }
@@ -123,6 +124,7 @@ var generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             copycats_version       : copycats_version,
             copycats_version_range : copycats_version_range,
             sable_beyond_version_range: sable_beyond_version_range,
+            sable_version_range    : sable_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,

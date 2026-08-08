@@ -48,3 +48,14 @@ description='''${mod_description}'''
     versionRange="${sable_beyond_version_range}"
     ordering="AFTER"
     side="BOTH"
+
+# Soft dependency (issue #30): when Sable is installed, this mod's copycats on a
+# Sable sub-level are re-meshed on client load so they are not invisible until a
+# manual block update. Declared independently of Sable Beyond because Sable can be
+# installed without it. Ordered AFTER so Sable is present before our client hook runs.
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="optional"
+    versionRange="${sable_version_range}"
+    ordering="AFTER"
+    side="CLIENT"
