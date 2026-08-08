@@ -1,6 +1,7 @@
 package com.agent772.copycatplusadditions.registry;
 
 import com.agent772.copycatplusadditions.CopycatPlusAdditions;
+import com.agent772.copycatplusadditions.foundation.CCAdditionsCopycatBlockEntity;
 import com.copycatsplus.copycats.foundation.copycat.CCCopycatBlockEntity;
 
 import net.minecraft.core.registries.Registries;
@@ -27,40 +28,40 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CCCopycatBlockEntity>> ADV_SLOPE_LAYER =
         BLOCK_ENTITIES.register("adv_slope_layer", () ->
             BlockEntityType.Builder
-                .of(
-                    (pos, state) -> new CCCopycatBlockEntity(ModBlockEntities.ADV_SLOPE_LAYER.get(), pos, state),
+                .<CCCopycatBlockEntity>of(
+                    (pos, state) -> new CCAdditionsCopycatBlockEntity(ModBlockEntities.ADV_SLOPE_LAYER.get(), pos, state),
                     ModBlocks.ADV_SLOPE_LAYER.get())
                 .build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CCCopycatBlockEntity>> INNER_CORNER_SLOPE =
         BLOCK_ENTITIES.register("inner_corner_slope", () ->
             BlockEntityType.Builder
-                .of(
-                    (pos, state) -> new CCCopycatBlockEntity(ModBlockEntities.INNER_CORNER_SLOPE.get(), pos, state),
+                .<CCCopycatBlockEntity>of(
+                    (pos, state) -> new CCAdditionsCopycatBlockEntity(ModBlockEntities.INNER_CORNER_SLOPE.get(), pos, state),
                     ModBlocks.INNER_CORNER_SLOPE.get())
                 .build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CCCopycatBlockEntity>> INNER_CORNER_SLOPE_LAYER =
         BLOCK_ENTITIES.register("inner_corner_slope_layer", () ->
             BlockEntityType.Builder
-                .of(
-                    (pos, state) -> new CCCopycatBlockEntity(ModBlockEntities.INNER_CORNER_SLOPE_LAYER.get(), pos, state),
+                .<CCCopycatBlockEntity>of(
+                    (pos, state) -> new CCAdditionsCopycatBlockEntity(ModBlockEntities.INNER_CORNER_SLOPE_LAYER.get(), pos, state),
                     ModBlocks.INNER_CORNER_SLOPE_LAYER.get())
                 .build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CCCopycatBlockEntity>> CORNER_SLOPE =
         BLOCK_ENTITIES.register("corner_slope", () ->
             BlockEntityType.Builder
-                .of(
-                    (pos, state) -> new CCCopycatBlockEntity(ModBlockEntities.CORNER_SLOPE.get(), pos, state),
+                .<CCCopycatBlockEntity>of(
+                    (pos, state) -> new CCAdditionsCopycatBlockEntity(ModBlockEntities.CORNER_SLOPE.get(), pos, state),
                     ModBlocks.CORNER_SLOPE.get())
                 .build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CCCopycatBlockEntity>> CORNER_SLOPE_LAYER =
         BLOCK_ENTITIES.register("corner_slope_layer", () ->
             BlockEntityType.Builder
-                .of(
-                    (pos, state) -> new CCCopycatBlockEntity(ModBlockEntities.CORNER_SLOPE_LAYER.get(), pos, state),
+                .<CCCopycatBlockEntity>of(
+                    (pos, state) -> new CCAdditionsCopycatBlockEntity(ModBlockEntities.CORNER_SLOPE_LAYER.get(), pos, state),
                     ModBlocks.CORNER_SLOPE_LAYER.get())
                 .build(null));
 

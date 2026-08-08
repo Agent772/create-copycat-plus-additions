@@ -38,3 +38,13 @@ description='''${mod_description}'''
     versionRange="[0,)"
     ordering="AFTER"
     side="BOTH"
+
+# Soft dependency (issue #27): when Sable Beyond is installed, copycat mass in
+# Sable physics reflects the mimicked material. Sable itself comes transitively
+# (it is a required dependency of Sable Beyond).
+[[dependencies.${mod_id}]]
+    modId="sable_beyond"
+    type="optional"
+    versionRange="${sable_beyond_version_range}"
+    ordering="AFTER"
+    side="BOTH"

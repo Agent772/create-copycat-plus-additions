@@ -93,11 +93,23 @@ dependencies {
     // Create — compileOnly: needed to resolve the Create base types that Copycats+'
     // blocks extend. Supplied transitively by Copycats+ at runtime.
     compileOnly "maven.modrinth:create:${create_version}"
+    // Ponder — compileOnly: Create's SmartBlockEntity (superclass of the copycat BE we
+    // subclass in CCAdditionsCopycatBlockEntity) implements Ponder's VirtualBlockEntity,
+    // so the type must be on the compile classpath. Supplied transitively by Create at runtime.
+    compileOnly "net.createmod.ponder:ponder-neoforge:${ponder_version}"
+    // Sable Beyond — soft dependency (issue #27 Stage 2). compileOnly for the
+    // DynamicMass API; Sable is added too since Sable Beyond hard-depends on it.
+    compileOnly "maven.modrinth:sable_beyond:${sable_beyond_version}"
+    compileOnly "maven.modrinth:sable:${sable_version}"
     // localRuntime: needed in dev so the runClient/runServer tasks see Copycats+ and
     // Create on the classpath. Shipped users provide both as runtime dependencies of
     // the published jar (declared in neoforge.mods.toml).
     localRuntime "maven.modrinth:copycats:${copycats_version}"
     localRuntime "maven.modrinth:create:${create_version}"
+    // localRuntime Sable + Sable Beyond so the dev instance can exercise the dynamic
+    // mass integration; both are optional at runtime for shipped users.
+    // localRuntime "maven.modrinth:sable:${sable_version}"
+    // localRuntime "maven.modrinth:sable_beyond:${sable_beyond_version}"
     localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
     localRuntime("maven.modrinth:jade:${jade_version}")
 }
@@ -110,6 +122,7 @@ var generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             loader_version_range   : loader_version_range,
             copycats_version       : copycats_version,
             copycats_version_range : copycats_version_range,
+            sable_beyond_version_range: sable_beyond_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,
