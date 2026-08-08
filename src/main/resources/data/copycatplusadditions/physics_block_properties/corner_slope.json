@@ -1,0 +1,8 @@
+{
+  "selector": "copycatplusadditions:corner_slope",
+
+  "properties": {
+    "sable:mass": 0.1667,
+    "sable:volume": 0.3333
+  }
+}

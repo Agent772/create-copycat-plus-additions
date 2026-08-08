@@ -1,0 +1,18 @@
+{
+  "selector": "copycatplusadditions:adv_slope_layer",
+
+  "properties": {
+    "sable:mass": 0.25,
+    "sable:volume": 0.5
+  },
+
+  "overrides": {
+    "layers=1": { "sable:mass": 0.03125, "sable:volume": 0.0625 },
+    "layers=2": { "sable:mass": 0.0625,  "sable:volume": 0.125  },
+    "layers=3": { "sable:mass": 0.09375, "sable:volume": 0.1875 },
+    "layers=4": { "sable:mass": 0.125,   "sable:volume": 0.25   },
+    "layers=5": { "sable:mass": 0.15625, "sable:volume": 0.3125 },
+    "layers=6": { "sable:mass": 0.1875,  "sable:volume": 0.375  },
+    "layers=7": { "sable:mass": 0.21875, "sable:volume": 0.4375 }
+  }
+}

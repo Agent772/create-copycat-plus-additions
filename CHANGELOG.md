@@ -1,3 +1,8 @@
+## Unreleased
+
+### Added
+- Added [Sable](https://github.com/ryanhcode/sable) physics compatibility: per-block-state `physics_block_properties` datapack definitions give every block a mass and buoyancy volume scaled to the fraction of the block its geometry actually fills (layer blocks scale per layer). The data is inert when Sable is not installed.
+
 ## Version 1.0.0
 
 ### Added
