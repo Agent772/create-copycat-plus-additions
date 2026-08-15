@@ -1,3 +1,8 @@
+## Unreleased
+
+### Fixed
+- Fixed tinted materials (e.g. Create: Armored Constructs armor, grass, leaves) rendering white/uncolored on corner slopes, inner corner slopes, their layer variants, and the advanced slope layer. A block color handler is now registered so tint is resolved from the copycat material, matching Copycats+ and Create copycats (#36).
+
 ## Version 1.2.0
 
 ### Added

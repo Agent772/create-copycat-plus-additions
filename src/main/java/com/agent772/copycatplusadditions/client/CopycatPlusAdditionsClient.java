@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import com.agent772.copycatplusadditions.registry.ModBlocks;
+import com.copycatsplus.copycats.foundation.copycat.ICopycatBlock;
 import com.copycatsplus.copycats.foundation.copycat.model.CopycatModelCore;
 
 import net.minecraft.client.renderer.block.BlockModelShaper;
@@ -14,6 +15,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.registries.DeferredHolder;
 
 /**
  * Client-only setup for Copycats+ Additions.
@@ -24,6 +27,14 @@ import net.neoforged.neoforge.client.event.ModelEvent;
  * here: after baking, every block's plain {@code minecraft:block/air} blockstate model is
  * wrapped in the matching {@link CopycatModelCore} so the slope geometry is emitted at
  * render time with the copycat material's texture.
+ *
+ * <p>The same Registrate gap applies to block tint: Copycats+ passes
+ * {@code .color(() -> ICopycatBlock::wrappedColor)} to its builders so tinted materials
+ * (dyed armor from Create: Armored Constructs, grass, leaves, …) resolve their color
+ * through the copycat's material state. Without a {@link net.minecraft.client.color.block.BlockColor}
+ * registered, {@code BlockColors.getColor} returns {@code -1} and every tinted quad draws
+ * untinted (e.g. white armor). {@link #onRegisterBlockColors} replicates that wiring for
+ * our five blocks (issue #36).
  *
  * <p>This class — and everything it imports — must only be touched on the physical
  * client; {@code CopycatPlusAdditions} guards the call to {@link #init(IEventBus)} with
@@ -36,6 +47,18 @@ public final class CopycatPlusAdditionsClient {
 
     public static void init(IEventBus modEventBus) {
         modEventBus.addListener(CopycatPlusAdditionsClient::onModifyBakingResult);
+        modEventBus.addListener(CopycatPlusAdditionsClient::onRegisterBlockColors);
+    }
+
+    // Delegate tint resolution to the copycat's material state, matching how Copycats+
+    // wires single-material copycats through Registrate. Every block this addon registers
+    // is a single-material copycat, so iterate the whole register — any future block is
+    // covered automatically with no per-block wiring to forget.
+    private static void onRegisterBlockColors(RegisterColorHandlersEvent.Block event) {
+        event.register(ICopycatBlock.wrappedColor(),
+            ModBlocks.BLOCKS.getEntries().stream()
+                .map(DeferredHolder::get)
+                .toArray(Block[]::new));
     }
 
     private static void onModifyBakingResult(ModelEvent.ModifyBakingResult event) {
