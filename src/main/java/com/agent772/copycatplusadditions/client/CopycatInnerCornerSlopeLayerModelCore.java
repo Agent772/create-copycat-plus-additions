@@ -1,5 +1,6 @@
 package com.agent772.copycatplusadditions.client;
 
+import com.agent772.copycatplusadditions.CornerLayerProfile;
 import com.agent772.copycatplusadditions.blocks.CopycatInnerCornerSlopeBlock;
 import com.agent772.copycatplusadditions.blocks.CopycatInnerCornerSlopeLayerBlock;
 import com.copycatsplus.copycats.foundation.copycat.model.CopycatModelCore;
@@ -14,9 +15,12 @@ import net.neoforged.api.distmarker.OnlyIn;
 /**
  * Client-only model core for {@link CopycatInnerCornerSlopeLayerBlock}.
  *
- * <p>Same geometry as {@link CopycatInnerCornerSlopeModelCore}, but the max slope
- * height is driven by the {@code LAYERS} property (2 voxels per layer) so the block
- * grows incrementally from a single-layer slice into the full solid inner corner.
+ * <p>Same geometry as {@link CopycatInnerCornerSlopeModelCore}, stacked with the
+ * same two-phase profile as the straight slope layer: layers 1-4 raise the three
+ * corners 4 voxels per layer with the notch pinned at the floor (bottom-anchored),
+ * then layers 5-8 pin the corners at the top and raise the notch (top-anchored),
+ * filling out to a full block at layer 8. Keeps the valley counterpart in lockstep
+ * with the outer corner so hip+valley roof kits stay coherent.
  */
 @OnlyIn(Dist.CLIENT)
 public class CopycatInnerCornerSlopeLayerModelCore extends CopycatModelCore {
@@ -27,6 +31,8 @@ public class CopycatInnerCornerSlopeLayerModelCore extends CopycatModelCore {
         Half half = state.getValue(CopycatInnerCornerSlopeBlock.HALF);
         int layers = state.getValue(CopycatInnerCornerSlopeLayerBlock.LAYERS);
         boolean roofRotated = state.getValue(CopycatInnerCornerSlopeBlock.ROOF_ROTATED);
-        CopycatInnerCornerSlopeModelCore.assembleInnerCorner(context, facing, half, layers * 2.0, roofRotated);
+        double apexTop = CornerLayerProfile.apexTop(layers, 16.0);
+        double floor = CornerLayerProfile.floor(layers, 16.0);
+        CopycatInnerCornerSlopeModelCore.assembleInnerCorner(context, facing, half, apexTop, floor, roofRotated);
     }
 }

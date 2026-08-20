@@ -15,6 +15,7 @@ version = mod_version
 group = mod_group_id
 
 repositories {
+    mavenCentral() // JUnit, Gson (unit tests)
     maven { url = "https://api.modrinth.com/maven" } // Jade
     maven { url = "https://maven.createmod.net" } // Create, Ponder, Flywheel
     maven { url = "https://maven.ithundxr.dev/snapshots" } // Registrate
@@ -113,6 +114,17 @@ dependencies {
     localRuntime "maven.modrinth:sable_beyond:${sable_beyond_version}"
     localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
     localRuntime("maven.modrinth:jade:${jade_version}")
+
+    // Unit tests — pure JVM, no game bootstrap. Exercises the Minecraft-free
+    // LayerVolumes math against the shipped physics_block_properties JSON.
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'com.google.code.gson:gson:2.11.0'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
 }
 
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {

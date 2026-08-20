@@ -31,9 +31,12 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Stackable 1-8 layer variant of {@link CopycatCornerSlopeBlock}. Each layer
- * adds 2 voxels of height to the wedge, so a full 8 layers equals the solid
- * outer corner slope.
+ * Stackable 1-8 layer variant of {@link CopycatCornerSlopeBlock}. Stacking follows
+ * the same two-phase profile as the straight slope layer (issue #43): layers 1-4
+ * raise the apex 4 voxels per layer (bottom-anchored, reaching 45&deg; at layer 4),
+ * then layers 5-8 raise the eave to fill out to a full block at layer 8. This gives
+ * a hip corner the same top-anchored shallow pitches a partial-pitch straight-slope
+ * roof has.
  */
 public class CopycatCornerSlopeLayerBlock extends CopycatCornerSlopeBlock {
 

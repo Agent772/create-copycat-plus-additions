@@ -64,12 +64,14 @@ public final class CCAdditionsShapes {
             for (Half half : Half.values()) {
                 boolean top = half == Half.TOP;
                 int i = index(facing, half);
-                INNER_CORNER_SLOPE[i] = buildShape(nc[0], nc[1], top, 1.0);
-                CORNER_SLOPE[i] = buildCornerShape(ac[0], ac[1], top, 1.0);
+                INNER_CORNER_SLOPE[i] = buildShape(nc[0], nc[1], top, 1.0, 0.0);
+                CORNER_SLOPE[i] = buildCornerShape(ac[0], ac[1], top, 1.0, 0.0);
                 for (int layers = 1; layers <= 8; layers++) {
                     int li = i * 8 + (layers - 1);
-                    INNER_CORNER_SLOPE_LAYER[li] = buildShape(nc[0], nc[1], top, layers * 2.0 / 16.0);
-                    CORNER_SLOPE_LAYER[li] = buildCornerShape(ac[0], ac[1], top, layers * 2.0 / 16.0);
+                    double apexTop = CornerLayerProfile.apexTop(layers, 1.0);
+                    double floor = CornerLayerProfile.floor(layers, 1.0);
+                    INNER_CORNER_SLOPE_LAYER[li] = buildShape(nc[0], nc[1], top, apexTop, floor);
+                    CORNER_SLOPE_LAYER[li] = buildCornerShape(ac[0], ac[1], top, apexTop, floor);
                 }
             }
         }
@@ -95,15 +97,15 @@ public final class CCAdditionsShapes {
         return CORNER_SLOPE_LAYER[index(facing, half) * 8 + (layers - 1)];
     }
 
-    private static VoxelShape buildShape(int nx, int nz, boolean topHalf, double maxH) {
-        VoxelShape staircase = buildStaircase(nx, nz, topHalf, maxH).optimize();
-        double[] edges = buildEdges(nx, nz, topHalf, maxH);
+    private static VoxelShape buildShape(int nx, int nz, boolean topHalf, double apexTop, double floor) {
+        VoxelShape staircase = buildStaircase(nx, nz, topHalf, apexTop, floor).optimize();
+        double[] edges = buildEdges(nx, nz, topHalf, apexTop, floor);
         return new OutlinedShape(staircase, edges);
     }
 
-    private static VoxelShape buildCornerShape(int ax, int az, boolean topHalf, double maxH) {
-        VoxelShape staircase = buildCornerStaircase(ax, az, topHalf, maxH).optimize();
-        double[] edges = buildCornerEdges(ax, az, topHalf, maxH);
+    private static VoxelShape buildCornerShape(int ax, int az, boolean topHalf, double apexTop, double floor) {
+        VoxelShape staircase = buildCornerStaircase(ax, az, topHalf, apexTop, floor).optimize();
+        double[] edges = buildCornerEdges(ax, az, topHalf, apexTop, floor);
         return new OutlinedShape(staircase, edges);
     }
 
@@ -115,17 +117,21 @@ public final class CCAdditionsShapes {
      * 8-step staircase approximation of the inner-corner slope.
      *
      * <p>The slope surface at normalised coords (x,z) in [0,1]^2 is
-     * {@code h(x,z) = max(dx, dz) * maxH} where dx, dz are distances from the
-     * notch corner. Each step i uses threshold {@code t = i/8} (bottom of the
-     * slice). The solid L-shape at that threshold decomposes into two
-     * non-overlapping axis-aligned boxes: Box A covers the z-arm, Box B the x-arm.
+     * {@code h(x,z) = floor + max(dx, dz) * (apexTop - floor)} where dx, dz are
+     * distances from the notch corner. Each wedge step i uses threshold
+     * {@code t = i/8} (bottom of the slice). The solid L-shape at that threshold
+     * decomposes into two non-overlapping axis-aligned boxes: Box A covers the
+     * z-arm, Box B the x-arm. When {@code floor > 0} (phase 2) a full-footprint
+     * slab from 0 to {@code floor} is added so the raised notch reads as a solid
+     * base rather than a floating wedge.
      */
-    private static VoxelShape buildStaircase(int nx, int nz, boolean topHalf, double maxH) {
-        VoxelShape shape = Shapes.empty();
+    private static VoxelShape buildStaircase(int nx, int nz, boolean topHalf, double apexTop, double floor) {
+        VoxelShape shape = baseSlab(topHalf, floor);
+        double wedge = apexTop - floor;
         for (int i = 0; i < STEPS; i++) {
             double t       = (double) i / STEPS;
-            double yLo     = (double) i / STEPS * maxH;
-            double yHi     = (double) (i + 1) / STEPS * maxH;
+            double yLo     = floor + (double) i / STEPS * wedge;
+            double yHi     = floor + (double) (i + 1) / STEPS * wedge;
 
             double blockYLo = topHalf ? (1.0 - yHi) : yLo;
             double blockYHi = topHalf ? (1.0 - yLo) : yHi;
@@ -133,7 +139,7 @@ public final class CCAdditionsShapes {
             // Box A: full x, solid z arm (away from notch-z edge)
             double zA  = (nz == 0) ? t    : 0.0;
             double zAx = (nz == 0) ? 1.0  : (1.0 - t);
-            if (zAx > zA) {
+            if (zAx > zA && yHi > yLo) {
                 shape = Shapes.or(shape, Shapes.box(0.0, blockYLo, zA, 1.0, blockYHi, zAx));
             }
 
@@ -142,11 +148,25 @@ public final class CCAdditionsShapes {
             double xBx = (nx == 0) ? 1.0  : (1.0 - t);
             double zB  = (nz == 0) ? 0.0  : (1.0 - t);
             double zBx = (nz == 0) ? t    : 1.0;
-            if (xBx > xB && zBx > zB) {
+            if (xBx > xB && zBx > zB && yHi > yLo) {
                 shape = Shapes.or(shape, Shapes.box(xB, blockYLo, zB, xBx, blockYHi, zBx));
             }
         }
         return shape;
+    }
+
+    /**
+     * Full-footprint solid slab from y=0 to y={@code floor} (flipped for the TOP
+     * half), or an empty shape when {@code floor <= 0}. Shared by the inner and
+     * outer corner staircases for the phase-2 fill below the wedge.
+     */
+    private static VoxelShape baseSlab(boolean topHalf, double floor) {
+        if (floor <= 0.0) {
+            return Shapes.empty();
+        }
+        double blockYLo = topHalf ? (1.0 - floor) : 0.0;
+        double blockYHi = topHalf ? 1.0 : floor;
+        return Shapes.box(0.0, blockYLo, 0.0, 1.0, blockYHi, 1.0);
     }
 
     // -------------------------------------------------------------------------
@@ -156,17 +176,20 @@ public final class CCAdditionsShapes {
     /**
      * 8-step staircase approximation of the outer corner slope.
      *
-     * The slope surface at normalised coords (x,z) is min(dx, dz) * maxH where
-     * dx, dz are distances from the apex corner measured toward the apex. At
-     * each step i the solid region is a single rectangle shrinking toward the
-     * apex -- one Shapes.box per step, not an L-shape.
+     * The slope surface at normalised coords (x,z) is
+     * {@code floor + min(dx, dz) * (apexTop - floor)} where dx, dz are distances
+     * from the apex corner measured toward the apex. At each wedge step i the
+     * solid region is a single rectangle shrinking toward the apex -- one
+     * Shapes.box per step, not an L-shape. When {@code floor > 0} (phase 2) a
+     * full-footprint slab from 0 to {@code floor} is added below the wedge.
      */
-    private static VoxelShape buildCornerStaircase(int ax, int az, boolean topHalf, double maxH) {
-        VoxelShape shape = Shapes.empty();
+    private static VoxelShape buildCornerStaircase(int ax, int az, boolean topHalf, double apexTop, double floor) {
+        VoxelShape shape = baseSlab(topHalf, floor);
+        double wedge = apexTop - floor;
         for (int i = 0; i < STEPS; i++) {
             double t       = (double) i / STEPS;
-            double yLo     = (double) i / STEPS * maxH;
-            double yHi     = (double) (i + 1) / STEPS * maxH;
+            double yLo     = floor + (double) i / STEPS * wedge;
+            double yHi     = floor + (double) (i + 1) / STEPS * wedge;
 
             double blockYLo = topHalf ? (1.0 - yHi) : yLo;
             double blockYHi = topHalf ? (1.0 - yLo) : yHi;
@@ -176,7 +199,7 @@ public final class CCAdditionsShapes {
             double zLo = (az == 0) ? 0.0 : t;
             double zHi = (az == 0) ? (1.0 - t) : 1.0;
 
-            if (xHi > xLo && zHi > zLo) {
+            if (xHi > xLo && zHi > zLo && yHi > yLo) {
                 shape = Shapes.or(shape, Shapes.box(xLo, blockYLo, zLo, xHi, blockYHi, zHi));
             }
         }
@@ -191,28 +214,32 @@ public final class CCAdditionsShapes {
      * The 12 wireframe edges of the inner-corner slope as a flat {@code double[]}
      * (6 doubles per edge: x1,y1,z1,x2,y2,z2).
      *
-     * <p>The shape has four XZ corners: the notch corner A (zero height) and three
-     * full-height corners B, C, D. The 12 edges are:
+     * <p>The shape has four XZ corners: the notch corner A and three raised
+     * corners B, C, D. In phase 1 ({@code floor == 0}) A sits on the flat face; in
+     * phase 2 ({@code floor > 0}) A is raised to {@code floor} and a vertical edge
+     * connects it down to the flat face. The edges are:
      * <ul>
      *   <li>4 edges on the flat face (floor for BOTTOM half, ceiling for TOP)</li>
-     *   <li>3 vertical edges at B, C, D (none at A which has zero height)</li>
+     *   <li>3 vertical edges at B, C, D (full-height corners)</li>
      *   <li>2 horizontal edges connecting the three full-height tops</li>
      *   <li>3 diagonal edges meeting at the notch: B-top to A, A to C-top,
      *       and the slope ridge D-top to A</li>
+     *   <li>phase 2 only: 1 vertical edge at the raised notch A (flat to floor)</li>
      * </ul>
      */
-    private static double[] buildEdges(int nx, int nz, boolean topHalf, double maxH) {
+    private static double[] buildEdges(int nx, int nz, boolean topHalf, double apexTop, double floor) {
         // XZ positions of the four corners
         double ax = nx,     az = nz;      // A = notch corner
         double bx = 1 - nx, bz = nz;      // B = same z as notch, opposite x
         double cx = nx,     cz = 1 - nz;  // C = same x as notch, opposite z
         double dx = 1 - nx, dz = 1 - nz;  // D = far corner
 
-        // Y positions: flat face and full-height level
-        double flat  = topHalf ? 1.0 : 0.0;
-        double fullY = topHalf ? 1.0 - maxH : maxH;
+        // Y positions: flat face, raised notch level, and full-height level
+        double flat   = topHalf ? 1.0 : 0.0;
+        double floorY = topHalf ? 1.0 - floor : floor;
+        double fullY  = topHalf ? 1.0 - apexTop : apexTop;
 
-        List<double[]> e = new ArrayList<>(12);
+        List<double[]> e = new ArrayList<>(13);
 
         // 4 edges on the flat face
         e.add(new double[]{ax, flat, az,  bx, flat, bz});
@@ -226,13 +253,17 @@ public final class CCAdditionsShapes {
         // 2 horizontal edges connecting the three full-height tops
         e.add(new double[]{bx, fullY, bz,  dx, fullY, dz});
         e.add(new double[]{dx, fullY, dz,  cx, fullY, cz});
-        // 3 diagonal edges meeting at the notch corner
-        e.add(new double[]{bx, fullY, bz,  ax, flat, az}); // adjacent face diagonal
-        e.add(new double[]{ax, flat, az,   cx, fullY, cz}); // adjacent face diagonal
-        e.add(new double[]{dx, fullY, dz,  ax, flat, az}); // slope ridge
+        // 3 diagonal edges meeting at the (possibly raised) notch corner
+        e.add(new double[]{bx, fullY, bz,   ax, floorY, az}); // adjacent face diagonal
+        e.add(new double[]{ax, floorY, az,  cx, fullY, cz}); // adjacent face diagonal
+        e.add(new double[]{dx, fullY, dz,   ax, floorY, az}); // slope ridge
+        // phase 2: vertical edge at the raised notch
+        if (floor > 0.0) {
+            e.add(new double[]{ax, flat, az,  ax, floorY, az});
+        }
 
-        double[] flat_array = new double[12 * 6];
-        for (int i = 0; i < 12; i++) {
+        double[] flat_array = new double[e.size() * 6];
+        for (int i = 0; i < e.size(); i++) {
             System.arraycopy(e.get(i), 0, flat_array, i * 6, 6);
         }
         return flat_array;
@@ -246,36 +277,44 @@ public final class CCAdditionsShapes {
      * The 8 wireframe edges of the outer corner slope as a flat double[] (6
      * doubles per edge: x1,y1,z1,x2,y2,z2).
      *
-     * A = apex corner (full height), B and C = adjacent corners (zero height,
-     * form the two visible triangular faces), D = opposite corner (zero height,
-     * the slope ridge goes from D at the bottom to A at the top).
+     * A = apex corner (full height), B and C = adjacent corners, D = opposite
+     * corner (the slope ridge goes from D up to A). In phase 1 ({@code floor == 0})
+     * B, C, D sit on the flat face; in phase 2 ({@code floor > 0}) they are raised
+     * to {@code floor} and vertical edges connect them down to the flat face.
      */
-    private static double[] buildCornerEdges(int ax, int az, boolean topHalf, double maxH) {
+    private static double[] buildCornerEdges(int ax, int az, boolean topHalf, double apexTop, double floor) {
         double aXp = ax,     aZp = az;
         double bXp = 1 - ax, bZp = az;
         double cXp = ax,     cZp = 1 - az;
         double dXp = 1 - ax, dZp = 1 - az;
 
-        double flat  = topHalf ? 1.0 : 0.0;
-        double fullY = topHalf ? (1.0 - maxH) : maxH;
+        double flat   = topHalf ? 1.0 : 0.0;
+        double floorY = topHalf ? (1.0 - floor) : floor;
+        double fullY  = topHalf ? (1.0 - apexTop) : apexTop;
 
-        List<double[]> e = new ArrayList<>(8);
+        List<double[]> e = new ArrayList<>(11);
 
         // 4 bottom (flat face) edges
         e.add(new double[]{0, flat, 0,   1, flat, 0});
         e.add(new double[]{1, flat, 0,   1, flat, 1});
         e.add(new double[]{1, flat, 1,   0, flat, 1});
         e.add(new double[]{0, flat, 1,   0, flat, 0});
-        // Apex vertical edge
+        // Apex vertical edge (full height, flat to apex tip)
         e.add(new double[]{aXp, flat, aZp,   aXp, fullY, aZp});
-        // Two adjacent face diagonals (B and C to apex top)
-        e.add(new double[]{bXp, flat, bZp,   aXp, fullY, aZp});
-        e.add(new double[]{cXp, flat, cZp,   aXp, fullY, aZp});
-        // Slope ridge (opposite corner D to apex top)
-        e.add(new double[]{dXp, flat, dZp,   aXp, fullY, aZp});
+        // Two adjacent face diagonals (B and C at eave level to apex top)
+        e.add(new double[]{bXp, floorY, bZp,   aXp, fullY, aZp});
+        e.add(new double[]{cXp, floorY, cZp,   aXp, fullY, aZp});
+        // Slope ridge (opposite corner D at eave level to apex top)
+        e.add(new double[]{dXp, floorY, dZp,   aXp, fullY, aZp});
+        // phase 2: vertical edges at the raised eave corners B, C, D
+        if (floor > 0.0) {
+            e.add(new double[]{bXp, flat, bZp,   bXp, floorY, bZp});
+            e.add(new double[]{cXp, flat, cZp,   cXp, floorY, cZp});
+            e.add(new double[]{dXp, flat, dZp,   dXp, floorY, dZp});
+        }
 
-        double[] flat_array = new double[8 * 6];
-        for (int i = 0; i < 8; i++) {
+        double[] flat_array = new double[e.size() * 6];
+        for (int i = 0; i < e.size(); i++) {
             System.arraycopy(e.get(i), 0, flat_array, i * 6, 6);
         }
         return flat_array;

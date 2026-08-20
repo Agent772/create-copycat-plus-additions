@@ -57,14 +57,22 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
         Direction facing = state.getValue(CopycatInnerCornerSlopeBlock.FACING);
         Half half = state.getValue(CopycatInnerCornerSlopeBlock.HALF);
         boolean roofRotated = state.getValue(CopycatInnerCornerSlopeBlock.ROOF_ROTATED);
-        assembleInnerCorner(context, facing, half, 16.0, roofRotated);
+        assembleInnerCorner(context, facing, half, 16.0, 0.0, roofRotated);
     }
 
-    static void assembleInnerCorner(CopycatRenderContext context, Direction facing, Half half, double maxHeight,
-                                    boolean roofRotated) {
+    /**
+     * Emits the inner corner (valley) geometry with the same two-phase profile as
+     * the outer corner and the straight slope layer: the three raised corners run
+     * from {@code floor} at the notch to {@code apexTop}. Passing {@code floor = 0}
+     * gives a bottom-anchored wedge (phase 1); raising {@code floor} while keeping
+     * {@code apexTop = 16} raises the notch, filling out to a full block at
+     * {@code floor = 16}. The solid body below the slope is supplied by the
+     * full-height {@code aabb} prism, so no separate base slab is needed.
+     */
+    static void assembleInnerCorner(CopycatRenderContext context, Direction facing, Half half, double apexTop,
+                                    double floor, boolean roofRotated) {
         int yRot = (int) facing.toYRot();
         boolean topHalf = half == Half.TOP;
-        final double h = maxHeight;
         AssemblyTransform transform = t -> t.rotateY(yRot).flipY(topHalf);
 
         // Roof UV: per-wing top-down projection rotated so the sprite's bottom edge
@@ -89,7 +97,7 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
             vec3(0, 0, 0),
             aabb(16, 16, 16),
             cull(MutableCullFace.NORTH | MutableCullFace.WEST),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, 0, h, b))),
+            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, floor, apexTop, b))),
             roofUV1
         );
 
@@ -101,7 +109,7 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
             vec3(0, 0, 0),
             aabb(16, 16, 16),
             cull(MutableCullFace.EAST | MutableCullFace.SOUTH),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, h, 0, a))),
+            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, apexTop, floor, a))),
             roofUV2
         );
     }

@@ -31,9 +31,10 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Stackable 1–8 layer variant of {@link CopycatInnerCornerSlopeBlock}. Each layer adds
- * 2 voxels of height to the three vertical walls and the diagonal face, so a full 8
- * layers tile up to the solid inner corner.
+ * Stackable 1–8 layer variant of {@link CopycatInnerCornerSlopeBlock}. Stacking follows
+ * the same two-phase profile as the straight slope layer (issue #43): layers 1-4 raise the
+ * three corners 4 voxels per layer (bottom-anchored, reaching the full inner corner at
+ * layer 4), then layers 5-8 raise the notch to fill out to a full block at layer 8.
  *
  * <p>Layer stacking: placing another inner-corner-slope-layer item against an existing
  * block of the same kind cycles the {@link #LAYERS} value instead of placing a new block,

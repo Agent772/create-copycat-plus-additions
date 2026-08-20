@@ -2,17 +2,17 @@
   "selector": "copycatplusadditions:inner_corner_slope_layer",
 
   "properties": {
-    "sable:mass": 0.33333,
-    "sable:volume": 0.66667
+    "sable:mass": 0.5,
+    "sable:volume": 1.0
   },
 
   "overrides": {
-    "layers=1": { "sable:mass": 0.04167, "sable:volume": 0.08333 },
-    "layers=2": { "sable:mass": 0.08333, "sable:volume": 0.16667 },
-    "layers=3": { "sable:mass": 0.125,   "sable:volume": 0.25    },
-    "layers=4": { "sable:mass": 0.16667, "sable:volume": 0.33333 },
-    "layers=5": { "sable:mass": 0.20833, "sable:volume": 0.41667 },
-    "layers=6": { "sable:mass": 0.25,    "sable:volume": 0.5     },
-    "layers=7": { "sable:mass": 0.29167, "sable:volume": 0.58333 }
+    "layers=1": { "sable:mass": 0.08333, "sable:volume": 0.16667 },
+    "layers=2": { "sable:mass": 0.16667, "sable:volume": 0.33333 },
+    "layers=3": { "sable:mass": 0.25,    "sable:volume": 0.5     },
+    "layers=4": { "sable:mass": 0.33333, "sable:volume": 0.66667 },
+    "layers=5": { "sable:mass": 0.375,   "sable:volume": 0.75    },
+    "layers=6": { "sable:mass": 0.41667, "sable:volume": 0.83333 },
+    "layers=7": { "sable:mass": 0.45833, "sable:volume": 0.91667 }
   }
 }

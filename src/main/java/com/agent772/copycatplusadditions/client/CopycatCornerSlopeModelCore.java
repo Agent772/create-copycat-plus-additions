@@ -149,14 +149,22 @@ public class CopycatCornerSlopeModelCore extends CopycatModelCore {
         Direction facing = state.getValue(CopycatCornerSlopeBlock.FACING);
         Half half = state.getValue(CopycatCornerSlopeBlock.HALF);
         boolean roofRotated = state.getValue(CopycatCornerSlopeBlock.ROOF_ROTATED);
-        assembleCornerSlope(context, facing, half, 16.0, roofRotated);
+        assembleCornerSlope(context, facing, half, 16.0, 0.0, roofRotated);
     }
 
-    static void assembleCornerSlope(CopycatRenderContext context, Direction facing, Half half, double maxHeight,
-                                    boolean roofRotated) {
+    /**
+     * Emits the outer corner geometry with a two-phase profile that mirrors the
+     * straight slope layer: the sloped face runs from {@code floor} at the eave to
+     * {@code apexTop} at the apex corner. Passing {@code floor = 0} gives a
+     * bottom-anchored wedge (phase 1); raising {@code floor} while keeping
+     * {@code apexTop = 16} produces a top-anchored shallow cut off an otherwise
+     * filled block (phase 2). The solid body below the slope is supplied by the
+     * full-height {@code aabb} prism, so no separate base slab is needed.
+     */
+    static void assembleCornerSlope(CopycatRenderContext context, Direction facing, Half half, double apexTop,
+                                    double floor, boolean roofRotated) {
         int yRot = (int) facing.getClockWise().toYRot();
         boolean topHalf = half == Half.TOP;
-        final double h = maxHeight;
         AssemblyTransform transform = t -> t.rotateY(yRot).flipY(topHalf);
 
         // Roof UV: per-wing top-down projection rotated so the sprite's bottom
@@ -182,7 +190,7 @@ public class CopycatCornerSlopeModelCore extends CopycatModelCore {
             vec3(0, 0, 0),
             aabb(16, 16, 16),
             cull(MutableCullFace.SOUTH | MutableCullFace.WEST),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, h, 0, a))),
+            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, apexTop, floor, a))),
             new CollapseVertex(0, 1, 0, 0),
             roofUV1
         );
@@ -198,7 +206,7 @@ public class CopycatCornerSlopeModelCore extends CopycatModelCore {
             vec3(0, 0, 0),
             aabb(16, 16, 16),
             cull(MutableCullFace.NORTH | MutableCullFace.EAST),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, h, 0, b))),
+            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, apexTop, floor, b))),
             new CollapseVertex(1, 0, 0, 0),
             roofUV2
         );

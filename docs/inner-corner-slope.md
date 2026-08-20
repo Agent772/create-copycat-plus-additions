@@ -18,8 +18,10 @@ Concretely: a full 16×16×16 block with one diagonal wedge removed. The cut goe
 - One diagonal slope face (the cut surface)
 - A ridge where the two outer ramps meet
 
-There is also a **stackable layer variant** (`inner_corner_slope_layer`, 1–8 layers, 2 voxels
-per layer) that grows from a thin slice up to the full solid block.
+There is also a **stackable layer variant** (`inner_corner_slope_layer`, 1–8 layers) that
+follows the same two-phase profile as the straight slope layer (issue #43): layers 1–4 raise
+the three corners 4 voxels per layer (bottom-anchored, reaching the full inner corner at layer
+4), then layers 5–8 raise the notch to fill out to a full block at layer 8.
 
 ---
 
@@ -32,7 +34,7 @@ Both blocks share `FACING` (N/S/E/W) and `HALF` (TOP/BOTTOM). The layer block ad
 |----------|---------------------------------|------------------------------------------------------|
 | `FACING` | `BlockStateProperties.HORIZONTAL_FACING` | Rotates the notch corner around Y          |
 | `HALF`   | `BlockStateProperties.HALF`     | Flips the geometry vertically (floor vs ceiling)     |
-| `LAYERS` | `BlockStateProperties.LAYERS`   | Scales height to `layers * 2` voxels (layer block only) |
+| `LAYERS` | `BlockStateProperties.LAYERS`   | Two-phase profile: apex rises 4 voxels/layer (1–4), then the notch fills (5–8) (layer block only) |
 
 **Notch corner mapping** (local block coords, verified against the render rotation in
 `CopycatInnerCornerSlopeModelCore`):
@@ -114,9 +116,11 @@ the slice):
 Using `t = i/8` (floor, not ceiling) ensures step 7 (`t = 7/8`) produces a thin L-shape that
 reaches full height. The old ceiling formula caused the staircase to peak at 7/8 height.
 
-The `maxH` parameter is `1.0` for the solid block and `layers * 2.0 / 16.0` for the layer
-variant, so the same helper scales to any layer count. At `layers=8`, the layer shape is
-identical to the solid block shape.
+The staircase is driven by two parameters, `apexTop` and `floor` (both in 0..1). For the solid
+block they are `1.0` and `0.0`. For the layer variant they follow the two-phase profile: layers
+1–4 use `apexTop = layers/4`, `floor = 0` (wedge grows up); layers 5–8 use `apexTop = 1.0`,
+`floor = (layers-4)/4` (a full-footprint base slab fills below the wedge). At `layers=4` the
+shape is the full inner corner; at `layers=8` it is a solid full block.
 
 ### `OutlinedShape` — smooth selection highlight
 
@@ -232,9 +236,11 @@ transform with the flip, so NORTH/WEST/EAST/SOUTH still point to the correct loc
 
 ### Layer variant
 
-`CopycatInnerCornerSlopeLayerModelCore` calls `assembleInnerCorner(context, facing, half, layers * 2.0)`.
-The `maxHeight` parameter scales the entire slope; at `layers=8` the result is identical to the
-full solid block (`maxHeight=16.0`).
+`CopycatInnerCornerSlopeLayerModelCore` calls `assembleInnerCorner(context, facing, half, apexTop, floor)`
+with the two-phase mapping: layers 1–4 use `apexTop = layers*4`, `floor = 0`; layers 5–8 use
+`apexTop = 16`, `floor = (layers-4)*4`. The sloped face runs from `floor` at the notch to
+`apexTop`; the solid body below is supplied by the full-height `aabb` prism (no separate slab
+piece). At `layers=4` the result is the full inner corner; at `layers=8` it is a solid full block.
 
 ### Transparency artifact (known issue / future work)
 

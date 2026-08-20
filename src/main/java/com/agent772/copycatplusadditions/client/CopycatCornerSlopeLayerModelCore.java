@@ -1,5 +1,6 @@
 package com.agent772.copycatplusadditions.client;
 
+import com.agent772.copycatplusadditions.CornerLayerProfile;
 import com.agent772.copycatplusadditions.blocks.CopycatCornerSlopeBlock;
 import com.agent772.copycatplusadditions.blocks.CopycatCornerSlopeLayerBlock;
 import com.copycatsplus.copycats.foundation.copycat.model.CopycatModelCore;
@@ -14,8 +15,18 @@ import net.neoforged.api.distmarker.OnlyIn;
 /**
  * Client-only model core for {@link CopycatCornerSlopeLayerBlock}.
  *
- * Same geometry as {@link CopycatCornerSlopeModelCore} with max height driven
- * by the LAYERS property (2 voxels per layer).
+ * Same geometry as {@link CopycatCornerSlopeModelCore}, stacked with the same
+ * two-phase profile as the straight slope layer
+ * ({@link CopycatVerticalSlopeLayerModelCore}):
+ * <ul>
+ *   <li>layers 1-4: apex rises 4 voxels per layer, eave pinned at the floor
+ *       (bottom-anchored) — 45&deg; is reached at layer 4;</li>
+ *   <li>layers 5-8: apex pinned at the top, eave (floor) rises 4 voxels per
+ *       layer (top-anchored), filling out to a full block at layer 8.</li>
+ * </ul>
+ * This gives a hip corner the same top-anchored shallow pitches a partial-pitch
+ * straight-slope roof has, so {@code corner-N} matches {@code straight-N}
+ * layer-for-layer.
  */
 @OnlyIn(Dist.CLIENT)
 public class CopycatCornerSlopeLayerModelCore extends CopycatModelCore {
@@ -26,6 +37,8 @@ public class CopycatCornerSlopeLayerModelCore extends CopycatModelCore {
         Half half = state.getValue(CopycatCornerSlopeBlock.HALF);
         int layers = state.getValue(CopycatCornerSlopeLayerBlock.LAYERS);
         boolean roofRotated = state.getValue(CopycatCornerSlopeBlock.ROOF_ROTATED);
-        CopycatCornerSlopeModelCore.assembleCornerSlope(context, facing, half, layers * 2.0, roofRotated);
+        double apexTop = CornerLayerProfile.apexTop(layers, 16.0);
+        double floor = CornerLayerProfile.floor(layers, 16.0);
+        CopycatCornerSlopeModelCore.assembleCornerSlope(context, facing, half, apexTop, floor, roofRotated);
     }
 }
