@@ -33,6 +33,7 @@ public class CopycatVerticalSlopeLayerModelCore extends CopycatSlopeLayerModelCo
         int layer = state.getValue(CopycatSlopeLayerBlock.LAYERS);
         Direction facing = state.getValue(CopycatSlopeLayerBlock.FACING);
         Half half = state.getValue(CopycatSlopeLayerBlock.HALF);
+        boolean sideways = state.getValue(CopycatVerticalSlopeLayerBlock.WALL_SIDEWAYS);
         int wallAngle = CopycatVerticalSlopeLayerBlock.wallAngle(facing, half);
         boolean rotateAroundZ = CopycatVerticalSlopeLayerBlock.wallRotateAroundZ(facing);
 
@@ -46,6 +47,17 @@ public class CopycatVerticalSlopeLayerModelCore extends CopycatSlopeLayerModelCo
                 t.rotateZ(wallAngle);
             } else {
                 t.rotateX(wallAngle);
+            }
+            // Sideways: the same extra quarter turn about the wall normal that
+            // buildWallShape applies, keeping the rendered edge left/right in lockstep
+            // with the collision shape.
+            if (sideways) {
+                int sidewaysAngle = CopycatVerticalSlopeLayerBlock.wallSidewaysAngle(facing);
+                if (CopycatVerticalSlopeLayerBlock.wallSidewaysRotateAroundZ(facing)) {
+                    t.rotateZ(sidewaysAngle);
+                } else {
+                    t.rotateX(sidewaysAngle);
+                }
             }
         };
 

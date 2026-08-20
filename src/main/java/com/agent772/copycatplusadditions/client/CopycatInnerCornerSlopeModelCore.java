@@ -7,6 +7,10 @@ import static com.copycatsplus.copycats.foundation.copycat.model.assembly.Copyca
 import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.vec3;
 import static com.copycatsplus.copycats.foundation.copycat.model.assembly.quad.QuadSlope.map;
 
+import java.util.List;
+
+import com.agent772.copycatplusadditions.CornerWallRotation;
+import com.agent772.copycatplusadditions.CornerWallRotation.Step;
 import com.agent772.copycatplusadditions.blocks.CopycatInnerCornerSlopeBlock;
 import com.copycatsplus.copycats.foundation.copycat.model.CopycatModelCore;
 import com.copycatsplus.copycats.foundation.copycat.model.assembly.AssemblyTransform;
@@ -57,7 +61,9 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
         Direction facing = state.getValue(CopycatInnerCornerSlopeBlock.FACING);
         Half half = state.getValue(CopycatInnerCornerSlopeBlock.HALF);
         boolean roofRotated = state.getValue(CopycatInnerCornerSlopeBlock.ROOF_ROTATED);
-        assembleInnerCorner(context, facing, half, 16.0, 0.0, roofRotated);
+        boolean inWall = state.getValue(CopycatInnerCornerSlopeBlock.IN_WALL);
+        boolean flipped = state.getValue(CopycatInnerCornerSlopeBlock.WALL_FLIPPED);
+        assembleInnerCorner(context, facing, half, 16.0, 0.0, roofRotated, inWall, flipped);
     }
 
     /**
@@ -70,10 +76,23 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
      * full-height {@code aabb} prism, so no separate base slab is needed.
      */
     static void assembleInnerCorner(CopycatRenderContext context, Direction facing, Half half, double apexTop,
-                                    double floor, boolean roofRotated) {
+                                    double floor, boolean roofRotated, boolean inWall, boolean flipped) {
         int yRot = (int) facing.toYRot();
         boolean topHalf = half == Half.TOP;
-        AssemblyTransform transform = t -> t.rotateY(yRot).flipY(topHalf);
+        // Wall mount: tip the oriented floor geometry onto the wall with the shared
+        // CornerWallRotation steps (identical to the collision shape in
+        // CCAdditionsShapes), appended after the FACING/HALF orientation.
+        List<Step> wallSteps = inWall ? CornerWallRotation.steps(facing, half, flipped) : List.of();
+        AssemblyTransform transform = t -> {
+            t.rotateY(yRot).flipY(topHalf);
+            for (Step s : wallSteps) {
+                if (s.axis() == CornerWallRotation.Axis.X) {
+                    t.rotateX(s.angle());
+                } else {
+                    t.rotateZ(s.angle());
+                }
+            }
+        };
 
         // Roof UV: per-wing top-down projection rotated so the sprite's bottom edge
         // lies on each wing's own LOCAL eave — grain runs parallel to the eave on

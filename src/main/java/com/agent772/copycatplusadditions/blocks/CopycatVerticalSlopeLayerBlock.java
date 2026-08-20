@@ -39,19 +39,25 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
     public static final BooleanProperty IN_WALL = BooleanProperty.create("in_wall");
 
     /**
-     * Cursor-Y threshold for choosing {@link Half#TOP} vs {@link Half#BOTTOM} when
-     * placing onto a wall: anything above the block's vertical midpoint puts the
-     * narrow edge up, anything at or below puts it down.
+     * Only meaningful when {@link #IN_WALL} is set. When {@code false} the slope's
+     * narrow edge runs horizontally (up/down, chosen by {@link #HALF}); when
+     * {@code true} the whole wall slope is spun a further 90&deg; about the wall
+     * normal so the narrow edge runs vertically (left/right). Together with
+     * {@link #HALF} this gives the four in-wall orientations (edge up/down/left/right).
+     * The extra spin is a pure rotation about the face normal, so the block stays flat
+     * on the wall; see {@link #wallSidewaysAngle}.
      */
-    private static final double WALL_HALF_THRESHOLD = 0.5D;
+    public static final BooleanProperty WALL_SIDEWAYS = BooleanProperty.create("wall_sideways");
 
     /**
-     * Cache of the rotated wall shapes: {@code FACING -> HALF -> LAYERS -> VoxelShape}.
-     * Built lazily because {@link CCShapes#SLOPE_LAYER} is only safe to read once the
-     * Copycats+ classes have initialised.
+     * Cache of the rotated wall shapes, keyed by {@link WallShapeKey}. Built lazily
+     * because {@link CCShapes#SLOPE_LAYER} is only safe to read once the Copycats+
+     * classes have initialised.
      */
-    private static final Map<Direction, Map<Half, Map<Integer, VoxelShape>>> WALL_SHAPES =
-        new ConcurrentHashMap<>();
+    private static final Map<WallShapeKey, VoxelShape> WALL_SHAPES = new ConcurrentHashMap<>();
+
+    private record WallShapeKey(Direction facing, Half half, boolean sideways, int layers) {
+    }
 
     public CopycatVerticalSlopeLayerBlock() {
         super(BlockBehaviour.Properties.of()
@@ -65,7 +71,7 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(IN_WALL);
+        builder.add(IN_WALL, WALL_SIDEWAYS);
     }
 
     @Override
@@ -85,23 +91,53 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
         Direction clickedFace = context.getClickedFace();
         if (!clickedFace.getAxis().isHorizontal()) {
             // Floor (UP) or ceiling (DOWN) click — parent's FACING/HALF are already correct.
-            return placement.setValue(IN_WALL, false);
+            return placement.setValue(IN_WALL, false).setValue(WALL_SIDEWAYS, false);
         }
 
         // Wall click. The parent's FACING/HALF here come from the player's horizontal
         // look direction and the cursor y, which has no relation to which wall face was
-        // actually clicked — we have to derive them ourselves. This mirrors the design
-        // of upstream Copycats+ PR #273 (the vertical-slope-layer reference): the slope
-        // FACING points outward from the wall (same direction as the clicked face) and
-        // HALF is chosen by cursor Y, putting the narrow edge of the slope toward
-        // whichever side of the block the player was aiming at.
+        // actually clicked — we derive them from the clicked quadrant instead. FACING is
+        // the wall normal (the clicked face). The narrow edge points toward whichever of
+        // the four face edges the cursor was nearest: up/down keep the edge horizontal
+        // (WALL_SIDEWAYS=false, HALF picks up vs down); left/right spin the slope a
+        // further 90 degrees about the normal (WALL_SIDEWAYS=true), with HALF reused to
+        // pick the right (TOP) vs left (BOTTOM) side per wallSidewaysAngle.
         Direction facing = clickedFace;
-        double yOffset = context.getClickLocation().y - context.getClickedPos().getY();
-        Half half = yOffset > WALL_HALF_THRESHOLD ? Half.TOP : Half.BOTTOM;
+        WallPlacement wall = wallPlacement(context);
         return placement
             .setValue(FACING, facing)
-            .setValue(HALF, half)
-            .setValue(IN_WALL, true);
+            .setValue(HALF, wall.half())
+            .setValue(IN_WALL, true)
+            .setValue(WALL_SIDEWAYS, wall.sideways());
+    }
+
+    private record WallPlacement(Half half, boolean sideways) {
+    }
+
+    /**
+     * Chooses the wall orientation from the clicked quadrant, working in the player's
+     * view frame so the mapping is identical on all four walls. The cursor's vertical
+     * offset and its horizontal offset along {@code clickedFace.getCounterClockWise()}
+     * (player-right) are compared: the larger one wins the edge. A vertical win keeps
+     * the edge horizontal (up/down); a horizontal win spins the slope sideways, with
+     * {@link Half#TOP} standing for the player-right side (see {@link #wallSidewaysAngle}).
+     */
+    private static WallPlacement wallPlacement(BlockPlaceContext context) {
+        Direction clickedFace = context.getClickedFace();
+        BlockPos pos = context.getClickedPos();
+        double up = context.getClickLocation().y - pos.getY();
+        Direction playerRight = clickedFace.getCounterClockWise();
+        double along = playerRight.getAxis() == Direction.Axis.X
+            ? context.getClickLocation().x - pos.getX()
+            : context.getClickLocation().z - pos.getZ();
+        double right = playerRight.getAxisDirection() == Direction.AxisDirection.POSITIVE
+            ? along : 1.0D - along;
+        double dv = up - 0.5D;
+        double dh = right - 0.5D;
+        if (Math.abs(dv) >= Math.abs(dh)) {
+            return new WallPlacement(dv > 0 ? Half.TOP : Half.BOTTOM, false);
+        }
+        return new WallPlacement(dh > 0 ? Half.TOP : Half.BOTTOM, true);
     }
 
     @Override
@@ -164,11 +200,11 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
         }
         Direction facing = state.getValue(FACING);
         Half half = state.getValue(HALF);
+        boolean sideways = state.getValue(WALL_SIDEWAYS);
         int layers = state.getValue(LAYERS);
-        return WALL_SHAPES
-            .computeIfAbsent(facing, f -> new ConcurrentHashMap<>())
-            .computeIfAbsent(half, h -> new ConcurrentHashMap<>())
-            .computeIfAbsent(layers, l -> buildWallShape(facing, half, layers));
+        return WALL_SHAPES.computeIfAbsent(
+            new WallShapeKey(facing, half, sideways, layers),
+            k -> buildWallShape(k.facing(), k.half(), k.sideways(), k.layers()));
     }
 
     @Override
@@ -204,12 +240,17 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
         //     edge up↔down, correct for a wall slope) or mirrors FACING through the
         //     mirror plane (the wall normal mirrors, correct).
         //
-        // IN_WALL is preserved because the parent rebuilds the returned state via
-        // tryCopyProperties, which copies every state property from the input.
         BlockState transformed = super.transform(state, transform);
         if (!state.getValue(IN_WALL)) {
             return transformed;
         }
+        // The parent rebuilds the returned state from tryCopyProperties, which should
+        // copy IN_WALL/WALL_SIDEWAYS across. Re-assert them from the original state so
+        // preservation never depends on that helper's internals -- otherwise a wall
+        // slope on a rotating contraption could silently revert to a floor slope.
+        transformed = transformed
+            .setValue(IN_WALL, true)
+            .setValue(WALL_SIDEWAYS, state.getValue(WALL_SIDEWAYS));
         // Defensive clamp: an exotic transform could leave FACING vertical (UP/DOWN),
         // which has no valid wall-slope interpretation. Coerce back to a floor slope
         // rather than render as a broken wall slope facing nowhere.
@@ -250,7 +291,35 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
         return facing.getAxis() == Direction.Axis.X;
     }
 
-    private static VoxelShape buildWallShape(Direction facing, Half half, int layers) {
+    /**
+     * The extra rotation (in degrees) applied about the wall normal when
+     * {@link #WALL_SIDEWAYS} is set, spinning the up/down wall slope a quarter turn so
+     * its narrow edge runs horizontally (left/right). The table is derived so that a
+     * {@link Half#TOP} slope's edge lands on the player's right for every wall (and
+     * {@link Half#BOTTOM} on the left), matching the placement rule in
+     * {@link #wallPlacement}. The rotation is about the normal axis (Z for N/S walls,
+     * X for E/W walls — the opposite of the tip axis in {@link #wallRotateAroundZ}), so
+     * the block stays flat against the face.
+     */
+    public static int wallSidewaysAngle(Direction facing) {
+        return switch (facing) {
+            case NORTH, WEST -> 270;
+            case SOUTH, EAST -> 90;
+            default -> throw new IllegalArgumentException(
+                "wallSidewaysAngle requires a horizontal FACING; got " + facing);
+        };
+    }
+
+    /**
+     * Which axis the {@link #WALL_SIDEWAYS} quarter turn is taken about: the wall normal
+     * itself. N/S walls (Z-axis normal) spin about Z; E/W walls (X-axis normal) spin
+     * about X — the complement of the tip axis in {@link #wallRotateAroundZ}.
+     */
+    public static boolean wallSidewaysRotateAroundZ(Direction facing) {
+        return facing.getAxis() == Direction.Axis.Z;
+    }
+
+    private static VoxelShape buildWallShape(Direction facing, Half half, boolean sideways, int layers) {
         // Start from the parent slope-layer shape (already oriented by FACING/HALF)
         // and tip it onto a vertical face using the same axis/angle the model core
         // uses, so hitbox and visual geometry agree. copy() yields a fresh, unfrozen
@@ -261,6 +330,17 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
             shape.rotateZ(angle);
         } else {
             shape.rotateX(angle);
+        }
+        // Sideways: spin a further quarter turn about the wall normal so the edge runs
+        // left/right. Applied after the tip and with the same axis/angle the model core
+        // uses, so the hitbox tracks the visual for this orientation too.
+        if (sideways) {
+            int sidewaysAngle = wallSidewaysAngle(facing);
+            if (wallSidewaysRotateAroundZ(facing)) {
+                shape.rotateZ(sidewaysAngle);
+            } else {
+                shape.rotateX(sidewaysAngle);
+            }
         }
         return shape.toShape();
     }

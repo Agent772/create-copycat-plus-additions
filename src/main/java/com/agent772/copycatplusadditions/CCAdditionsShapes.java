@@ -3,6 +3,11 @@ package com.agent772.copycatplusadditions;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.agent772.copycatplusadditions.CornerWallRotation.Step;
+import com.copycatsplus.copycats.foundation.copycat.model.assembly.MutableVec3;
 
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.properties.Half;
@@ -57,6 +62,17 @@ public final class CCAdditionsShapes {
     private static final VoxelShape[] INNER_CORNER_SLOPE_LAYER = new VoxelShape[64];
     private static final VoxelShape[] CORNER_SLOPE_LAYER = new VoxelShape[64];
 
+    /*
+     * Wall-mounted (IN_WALL) variants are the floor shapes tipped 90 degrees onto a
+     * vertical face (see CornerWallRotation). They are far less common than the floor
+     * shapes and the state space is 4x larger (adds WALL_FLIPPED on top of IN_WALL),
+     * so rather than inflate class-load time by precomputing all of them eagerly they
+     * are built on first use and cached here — the same lazy pattern the straight
+     * vertical slope layer uses.
+     */
+    private static final Map<Integer, VoxelShape> INNER_CORNER_WALL = new ConcurrentHashMap<>();
+    private static final Map<Integer, VoxelShape> CORNER_WALL = new ConcurrentHashMap<>();
+
     static {
         for (Direction facing : HORIZONTALS) {
             int[] nc = notchCorner(facing);
@@ -81,32 +97,165 @@ public final class CCAdditionsShapes {
         return facing.get2DDataValue() * 2 + half.ordinal();
     }
 
-    public static VoxelShape innerCornerSlope(Direction facing, Half half) {
-        return INNER_CORNER_SLOPE[index(facing, half)];
+    public static VoxelShape innerCornerSlope(Direction facing, Half half, boolean inWall, boolean flipped) {
+        if (!inWall) {
+            return INNER_CORNER_SLOPE[index(facing, half)];
+        }
+        return INNER_CORNER_WALL.computeIfAbsent(wallKey(facing, half, 0, flipped),
+            k -> buildInnerWall(facing, half, 0, flipped));
     }
 
-    public static VoxelShape innerCornerSlopeLayer(Direction facing, Half half, int layers) {
-        return INNER_CORNER_SLOPE_LAYER[index(facing, half) * 8 + (layers - 1)];
+    public static VoxelShape innerCornerSlopeLayer(Direction facing, Half half, int layers,
+                                                   boolean inWall, boolean flipped) {
+        if (!inWall) {
+            return INNER_CORNER_SLOPE_LAYER[index(facing, half) * 8 + (layers - 1)];
+        }
+        return INNER_CORNER_WALL.computeIfAbsent(wallKey(facing, half, layers, flipped),
+            k -> buildInnerWall(facing, half, layers, flipped));
     }
 
-    public static VoxelShape cornerSlope(Direction facing, Half half) {
-        return CORNER_SLOPE[index(facing, half)];
+    public static VoxelShape cornerSlope(Direction facing, Half half, boolean inWall, boolean flipped) {
+        if (!inWall) {
+            return CORNER_SLOPE[index(facing, half)];
+        }
+        return CORNER_WALL.computeIfAbsent(wallKey(facing, half, 0, flipped),
+            k -> buildCornerWall(facing, half, 0, flipped));
     }
 
-    public static VoxelShape cornerSlopeLayer(Direction facing, Half half, int layers) {
-        return CORNER_SLOPE_LAYER[index(facing, half) * 8 + (layers - 1)];
+    public static VoxelShape cornerSlopeLayer(Direction facing, Half half, int layers,
+                                              boolean inWall, boolean flipped) {
+        if (!inWall) {
+            return CORNER_SLOPE_LAYER[index(facing, half) * 8 + (layers - 1)];
+        }
+        return CORNER_WALL.computeIfAbsent(wallKey(facing, half, layers, flipped),
+            k -> buildCornerWall(facing, half, layers, flipped));
+    }
+
+    /** Packs (facing, half, layers 0=base|1..8, flipped) into a cache key. */
+    private static int wallKey(Direction facing, Half half, int layers, boolean flipped) {
+        return ((facing.get2DDataValue() * 2 + half.ordinal()) * 9 + layers) * 2 + (flipped ? 1 : 0);
     }
 
     private static VoxelShape buildShape(int nx, int nz, boolean topHalf, double apexTop, double floor) {
-        VoxelShape staircase = buildStaircase(nx, nz, topHalf, apexTop, floor).optimize();
+        List<double[]> boxes = innerBoxes(nx, nz, topHalf, apexTop, floor);
         double[] edges = buildEdges(nx, nz, topHalf, apexTop, floor);
-        return new OutlinedShape(staircase, edges);
+        return new OutlinedShape(boxesToShape(boxes), edges);
     }
 
     private static VoxelShape buildCornerShape(int ax, int az, boolean topHalf, double apexTop, double floor) {
-        VoxelShape staircase = buildCornerStaircase(ax, az, topHalf, apexTop, floor).optimize();
+        List<double[]> boxes = cornerBoxes(ax, az, topHalf, apexTop, floor);
         double[] edges = buildCornerEdges(ax, az, topHalf, apexTop, floor);
-        return new OutlinedShape(staircase, edges);
+        return new OutlinedShape(boxesToShape(boxes), edges);
+    }
+
+    // -------------------------------------------------------------------------
+    // Wall-mounted (IN_WALL) variants
+    // -------------------------------------------------------------------------
+
+    /**
+     * Builds an inner-corner wall shape: the floor shape for {@code (facing, half,
+     * layers)} tipped onto the wall by the shared {@link CornerWallRotation} steps.
+     * {@code layers == 0} selects the non-layer base shape.
+     */
+    private static VoxelShape buildInnerWall(Direction facing, Half half, int layers, boolean flipped) {
+        int[] nc = notchCorner(facing);
+        boolean top = half == Half.TOP;
+        double apexTop = layers == 0 ? 1.0 : CornerLayerProfile.apexTop(layers, 1.0);
+        double floor = layers == 0 ? 0.0 : CornerLayerProfile.floor(layers, 1.0);
+        List<double[]> boxes = innerBoxes(nc[0], nc[1], top, apexTop, floor);
+        double[] edges = buildEdges(nc[0], nc[1], top, apexTop, floor);
+        return tipOntoWall(boxes, edges, facing, half, flipped);
+    }
+
+    /** Outer-corner counterpart of {@link #buildInnerWall}. */
+    private static VoxelShape buildCornerWall(Direction facing, Half half, int layers, boolean flipped) {
+        int[] ac = apexCorner(facing);
+        boolean top = half == Half.TOP;
+        double apexTop = layers == 0 ? 1.0 : CornerLayerProfile.apexTop(layers, 1.0);
+        double floor = layers == 0 ? 0.0 : CornerLayerProfile.floor(layers, 1.0);
+        List<double[]> boxes = cornerBoxes(ac[0], ac[1], top, apexTop, floor);
+        double[] edges = buildCornerEdges(ac[0], ac[1], top, apexTop, floor);
+        return tipOntoWall(boxes, edges, facing, half, flipped);
+    }
+
+    /**
+     * Applies the shared {@link CornerWallRotation} steps to the floor staircase boxes
+     * and wireframe edges, so the collision/outline geometry tips onto the wall in
+     * lockstep with the rendered model (which applies the same steps to its
+     * {@code AssemblyTransform}).
+     */
+    private static VoxelShape tipOntoWall(List<double[]> boxes, double[] edges, Direction facing,
+                                          Half half, boolean flipped) {
+        List<Step> steps = CornerWallRotation.steps(facing, half, flipped);
+        return new OutlinedShape(boxesToShape(rotateBoxes(boxes, steps)), rotateEdges(edges, steps));
+    }
+
+    private static VoxelShape boxesToShape(List<double[]> boxes) {
+        VoxelShape shape = Shapes.empty();
+        for (double[] b : boxes) {
+            shape = Shapes.or(shape, Shapes.box(b[0], b[1], b[2], b[3], b[4], b[5]));
+        }
+        return shape.optimize();
+    }
+
+    private static List<double[]> rotateBoxes(List<double[]> boxes, List<Step> steps) {
+        List<double[]> out = new ArrayList<>(boxes.size());
+        for (double[] b : boxes) {
+            double[] p0 = {b[0], b[1], b[2]};
+            double[] p1 = {b[3], b[4], b[5]};
+            for (Step s : steps) {
+                p0 = rotatePoint(p0, s);
+                p1 = rotatePoint(p1, s);
+            }
+            // Axis-aligned 90/180/270 turns map a box to a box; recover min/max corners.
+            out.add(new double[]{
+                Math.min(p0[0], p1[0]), Math.min(p0[1], p1[1]), Math.min(p0[2], p1[2]),
+                Math.max(p0[0], p1[0]), Math.max(p0[1], p1[1]), Math.max(p0[2], p1[2])});
+        }
+        return out;
+    }
+
+    private static double[] rotateEdges(double[] edges, List<Step> steps) {
+        double[] out = new double[edges.length];
+        for (int i = 0; i < edges.length; i += 6) {
+            double[] a = {edges[i], edges[i + 1], edges[i + 2]};
+            double[] b = {edges[i + 3], edges[i + 4], edges[i + 5]};
+            for (Step s : steps) {
+                a = rotatePoint(a, s);
+                b = rotatePoint(b, s);
+            }
+            out[i] = a[0];
+            out[i + 1] = a[1];
+            out[i + 2] = a[2];
+            out[i + 3] = b[0];
+            out[i + 4] = b[1];
+            out[i + 5] = b[2];
+        }
+        return out;
+    }
+
+    /**
+     * Rotates a unit-space point about the block centre for one {@link Step} by
+     * delegating to Copycats+' {@link MutableVec3#rotateX(int)}/{@link MutableVec3#rotateZ(int)}.
+     * The model cores drive their {@code AssemblyTransform} through the very same
+     * methods, so the collision shape built here and the rendered geometry share one
+     * rotation implementation and cannot drift apart. {@code MutableVec3} rotates in
+     * the same unit (0..1) space these boxes live in, so no scaling is needed.
+     */
+    private static double[] rotatePoint(double[] p, Step step) {
+        // rotateBoxes recovers a box from just its two opposite corners, which is only
+        // valid for axis-aligned (90/180/270) turns. MutableVec3 silently no-ops any
+        // other angle, so guard here rather than let a bad step drift the hitbox.
+        if (step.angle() % 90 != 0) {
+            throw new IllegalArgumentException(
+                "rotation step must be a multiple of 90 degrees; got " + step.angle());
+        }
+        MutableVec3 v = new MutableVec3(p[0], p[1], p[2]);
+        switch (step.axis()) {
+            case X -> v.rotateX(step.angle());
+            case Z -> v.rotateZ(step.angle());
+        }
+        return new double[]{v.x, v.y, v.z};
     }
 
     // -------------------------------------------------------------------------
@@ -125,8 +274,9 @@ public final class CCAdditionsShapes {
      * slab from 0 to {@code floor} is added so the raised notch reads as a solid
      * base rather than a floating wedge.
      */
-    private static VoxelShape buildStaircase(int nx, int nz, boolean topHalf, double apexTop, double floor) {
-        VoxelShape shape = baseSlab(topHalf, floor);
+    private static List<double[]> innerBoxes(int nx, int nz, boolean topHalf, double apexTop, double floor) {
+        List<double[]> boxes = new ArrayList<>();
+        addBaseSlab(boxes, topHalf, floor);
         double wedge = apexTop - floor;
         for (int i = 0; i < STEPS; i++) {
             double t       = (double) i / STEPS;
@@ -140,7 +290,7 @@ public final class CCAdditionsShapes {
             double zA  = (nz == 0) ? t    : 0.0;
             double zAx = (nz == 0) ? 1.0  : (1.0 - t);
             if (zAx > zA && yHi > yLo) {
-                shape = Shapes.or(shape, Shapes.box(0.0, blockYLo, zA, 1.0, blockYHi, zAx));
+                boxes.add(new double[]{0.0, blockYLo, zA, 1.0, blockYHi, zAx});
             }
 
             // Box B: solid x arm, complementary z band (no overlap with Box A)
@@ -149,24 +299,24 @@ public final class CCAdditionsShapes {
             double zB  = (nz == 0) ? 0.0  : (1.0 - t);
             double zBx = (nz == 0) ? t    : 1.0;
             if (xBx > xB && zBx > zB && yHi > yLo) {
-                shape = Shapes.or(shape, Shapes.box(xB, blockYLo, zB, xBx, blockYHi, zBx));
+                boxes.add(new double[]{xB, blockYLo, zB, xBx, blockYHi, zBx});
             }
         }
-        return shape;
+        return boxes;
     }
 
     /**
-     * Full-footprint solid slab from y=0 to y={@code floor} (flipped for the TOP
-     * half), or an empty shape when {@code floor <= 0}. Shared by the inner and
-     * outer corner staircases for the phase-2 fill below the wedge.
+     * Adds a full-footprint solid slab from y=0 to y={@code floor} (flipped for the
+     * TOP half) to {@code boxes}, or nothing when {@code floor <= 0}. Shared by the
+     * inner and outer corner staircases for the phase-2 fill below the wedge.
      */
-    private static VoxelShape baseSlab(boolean topHalf, double floor) {
+    private static void addBaseSlab(List<double[]> boxes, boolean topHalf, double floor) {
         if (floor <= 0.0) {
-            return Shapes.empty();
+            return;
         }
         double blockYLo = topHalf ? (1.0 - floor) : 0.0;
         double blockYHi = topHalf ? 1.0 : floor;
-        return Shapes.box(0.0, blockYLo, 0.0, 1.0, blockYHi, 1.0);
+        boxes.add(new double[]{0.0, blockYLo, 0.0, 1.0, blockYHi, 1.0});
     }
 
     // -------------------------------------------------------------------------
@@ -183,8 +333,9 @@ public final class CCAdditionsShapes {
      * Shapes.box per step, not an L-shape. When {@code floor > 0} (phase 2) a
      * full-footprint slab from 0 to {@code floor} is added below the wedge.
      */
-    private static VoxelShape buildCornerStaircase(int ax, int az, boolean topHalf, double apexTop, double floor) {
-        VoxelShape shape = baseSlab(topHalf, floor);
+    private static List<double[]> cornerBoxes(int ax, int az, boolean topHalf, double apexTop, double floor) {
+        List<double[]> boxes = new ArrayList<>();
+        addBaseSlab(boxes, topHalf, floor);
         double wedge = apexTop - floor;
         for (int i = 0; i < STEPS; i++) {
             double t       = (double) i / STEPS;
@@ -200,10 +351,10 @@ public final class CCAdditionsShapes {
             double zHi = (az == 0) ? (1.0 - t) : 1.0;
 
             if (xHi > xLo && zHi > zLo && yHi > yLo) {
-                shape = Shapes.or(shape, Shapes.box(xLo, blockYLo, zLo, xHi, blockYHi, zHi));
+                boxes.add(new double[]{xLo, blockYLo, zLo, xHi, blockYHi, zHi});
             }
         }
-        return shape;
+        return boxes;
     }
 
     // -------------------------------------------------------------------------

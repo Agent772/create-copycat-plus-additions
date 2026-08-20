@@ -136,7 +136,8 @@ public class CopycatCornerSlopeLayerBlock extends CopycatCornerSlopeBlock {
 
     private VoxelShape wedgeShape(BlockState state) {
         return CCAdditionsShapes.cornerSlopeLayer(
-            state.getValue(FACING), state.getValue(HALF), state.getValue(LAYERS));
+            state.getValue(FACING), state.getValue(HALF), state.getValue(LAYERS),
+            state.getValue(IN_WALL), state.getValue(WALL_FLIPPED));
     }
 
     @Override

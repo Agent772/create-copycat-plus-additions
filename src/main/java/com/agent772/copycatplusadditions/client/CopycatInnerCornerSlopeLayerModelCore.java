@@ -31,8 +31,11 @@ public class CopycatInnerCornerSlopeLayerModelCore extends CopycatModelCore {
         Half half = state.getValue(CopycatInnerCornerSlopeBlock.HALF);
         int layers = state.getValue(CopycatInnerCornerSlopeLayerBlock.LAYERS);
         boolean roofRotated = state.getValue(CopycatInnerCornerSlopeBlock.ROOF_ROTATED);
+        boolean inWall = state.getValue(CopycatInnerCornerSlopeBlock.IN_WALL);
+        boolean flipped = state.getValue(CopycatInnerCornerSlopeBlock.WALL_FLIPPED);
         double apexTop = CornerLayerProfile.apexTop(layers, 16.0);
         double floor = CornerLayerProfile.floor(layers, 16.0);
-        CopycatInnerCornerSlopeModelCore.assembleInnerCorner(context, facing, half, apexTop, floor, roofRotated);
+        CopycatInnerCornerSlopeModelCore.assembleInnerCorner(context, facing, half, apexTop, floor, roofRotated,
+            inWall, flipped);
     }
 }

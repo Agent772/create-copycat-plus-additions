@@ -1,6 +1,7 @@
 package com.agent772.copycatplusadditions.blocks;
 
 import com.agent772.copycatplusadditions.CCAdditionsShapes;
+import com.agent772.copycatplusadditions.CornerWallPlacement;
 import com.agent772.copycatplusadditions.config.ServerConfig;
 import com.agent772.copycatplusadditions.registry.ModBlockEntities;
 import com.copycatsplus.copycats.foundation.copycat.CCCopycatBlockEntity;
@@ -63,6 +64,26 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
      */
     public static final BooleanProperty ROOF_ROTATED = BooleanProperty.create("roof_rotated");
 
+    /**
+     * {@code true} when the corner wedge is mounted flat against a vertical (wall)
+     * face rather than sitting on the floor/ceiling. Mirrors
+     * {@code CopycatVerticalSlopeLayerBlock#IN_WALL} for the straight slope: when set,
+     * {@link #FACING} is the wall normal, {@link #HALF} chooses the narrow edge
+     * up/down, and {@link #WALL_FLIPPED} chooses which horizontal side the apex wraps
+     * toward.
+     */
+    public static final BooleanProperty IN_WALL = BooleanProperty.create("in_wall");
+
+    /**
+     * Only meaningful when {@link #IN_WALL} is set. A straight slope needs only
+     * FACING (wall normal) + HALF (up/down) to fix its 8 wall orientations, but a
+     * corner wedge has a two-axis apex, so tipping it onto a wall leaves one extra
+     * degree of freedom: which horizontal side of the wall face the apex points to.
+     * This flag captures that choice from the horizontal cursor offset at placement,
+     * giving the full 16 wall orientations (4 walls x up/down x apex-left/right).
+     */
+    public static final BooleanProperty WALL_FLIPPED = BooleanProperty.create("wall_flipped");
+
     public CopycatCornerSlopeBlock() {
         this(BlockBehaviour.Properties.of()
             .mapColor(MapColor.METAL)
@@ -77,12 +98,14 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
         registerDefaultState(defaultBlockState()
             .setValue(FACING, Direction.NORTH)
             .setValue(HALF, Half.BOTTOM)
-            .setValue(ROOF_ROTATED, false));
+            .setValue(ROOF_ROTATED, false)
+            .setValue(IN_WALL, false)
+            .setValue(WALL_FLIPPED, false));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, HALF, ROOF_ROTATED);
+        builder.add(FACING, HALF, ROOF_ROTATED, IN_WALL, WALL_FLIPPED);
         super.createBlockStateDefinition(builder);
     }
 
@@ -92,9 +115,25 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
         if (placement == null) {
             return null;
         }
+        Direction clickedFace = context.getClickedFace();
+        if (clickedFace.getAxis().isHorizontal()) {
+            // Wall click: mount the corner flat against the clicked face. FACING is the wall
+            // normal (clicked face); HALF and WALL_FLIPPED are derived together so the apex
+            // lands in the exact quadrant of the face the player clicked (see wallPlacement).
+            CornerWallPlacement.WallPlacement wall = CornerWallPlacement.wallPlacement(context);
+            return placement
+                .setValue(FACING, clickedFace)
+                .setValue(HALF, wall.half())
+                .setValue(IN_WALL, true)
+                .setValue(WALL_FLIPPED, wall.flipped());
+        }
         Direction facing = apexFacingFromViewAngle(context.getRotation());
-        Half half = CopycatInnerCornerSlopeBlock.pickHalf(context);
-        return placement.setValue(FACING, facing).setValue(HALF, half);
+        Half half = CornerWallPlacement.pickHalf(context);
+        return placement
+            .setValue(FACING, facing)
+            .setValue(HALF, half)
+            .setValue(IN_WALL, false)
+            .setValue(WALL_FLIPPED, false);
     }
 
     /**
@@ -154,7 +193,8 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return CCAdditionsShapes.cornerSlope(state.getValue(FACING), state.getValue(HALF));
+        return CCAdditionsShapes.cornerSlope(state.getValue(FACING), state.getValue(HALF),
+            state.getValue(IN_WALL), state.getValue(WALL_FLIPPED));
     }
 
     @Override
@@ -164,6 +204,13 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
 
     @Override
     public boolean hidesNeighborFace(BlockGetter level, BlockPos pos, BlockState state, BlockState neighborState, Direction dir) {
+        // A wall corner's visible shape has been tipped 90 degrees onto the wall, so
+        // the parent shape-based occlusion (which assumes floor geometry from
+        // FACING/HALF) would hide/show the wrong neighbour faces. Disable face hiding
+        // for wall corners, matching CopycatVerticalSlopeLayerBlock's trade-off.
+        if (state.getValue(IN_WALL)) {
+            return false;
+        }
         return ICopycatBlock.hidesNeighborFace(level, pos, state, neighborState, dir);
     }
 
@@ -174,7 +221,26 @@ public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
 
     @Override
     public BlockState transform(BlockState state, StructureTransform transform) {
-        return BlockUtils.transformStepLikeHorizontal(state, transform, defaultBlockState());
+        BlockState transformed = BlockUtils.transformStepLikeHorizontal(state, transform, defaultBlockState());
+        if (!state.getValue(IN_WALL)) {
+            return transformed;
+        }
+        // transformStepLikeHorizontal seeds its result from defaultBlockState() (where
+        // IN_WALL/WALL_FLIPPED are false) and copies shared properties back via
+        // tryCopyProperties. Re-assert the wall booleans from the original state so
+        // preservation never depends on that helper's internals -- otherwise a wall
+        // corner on a rotating contraption could silently revert to a floor corner.
+        transformed = transformed
+            .setValue(IN_WALL, true)
+            .setValue(WALL_FLIPPED, state.getValue(WALL_FLIPPED));
+        // Y-axis rotation carries the wall normal around with the contraption (correct);
+        // non-Y 90 degree rotations are pinned to no-op upstream. Defensive clamp: if an
+        // exotic transform left FACING vertical there is no valid wall interpretation, so
+        // fall back to a floor corner rather than render a wall corner facing nowhere.
+        if (transformed.getValue(FACING).getAxis().isVertical()) {
+            return transformed.setValue(IN_WALL, false);
+        }
+        return transformed;
     }
 
     @Override
