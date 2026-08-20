@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
@@ -24,6 +23,7 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
@@ -106,34 +106,22 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
 
     @Override
     public boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
-        // The parent's canBeReplaced only allows stacking when the clicked face is the
-        // opposite of FACING (i.e. clicking the "back" of a floor slope). For wall-mounted
-        // slopes FACING already points outward from the wall, so the player is hitting
-        // the FACING face directly when they try to extend the slope outward — match
-        // upstream Copycats+ PR #273 by flipping the comparison for IN_WALL=true.
-        ItemStack itemInHand = context.getItemInHand();
-        if (!itemInHand.is(this.asItem())) {
+        // Any click with the matching layer item grows the stack while it is below the
+        // cap — the clicked face is irrelevant. Face gating used to decide increment vs.
+        // place-adjacent (and had to be flipped for IN_WALL, since a wall slope's FACING
+        // points out of the wall), but the accepted face shifted with the wedge each
+        // layer, so the "sweet spot" moved between clicks (issue #45). Once the block is
+        // full (LAYERS==8) this returns false and a new block is placed on the clicked
+        // side — for both floor and wall variants, preserving FACING/HALF/IN_WALL.
+        // Sneak-placing opts out of stacking entirely: it behaves like a full block, so a
+        // new block is placed on the clicked side even below the cap.
+        if (context.isSecondaryUseActive()) {
             return false;
         }
-        if (state.getValue(LAYERS) == 8) {
+        if (!context.getItemInHand().is(this.asItem())) {
             return false;
         }
-        Direction facing = state.getValue(FACING);
-        Half half = state.getValue(HALF);
-        boolean inWall = state.getValue(IN_WALL);
-        Direction clickedFace = context.getClickedFace();
-        if (inWall) {
-            // Wall slopes can only be extended by clicking the FACING face (the one
-            // pointing out of the wall). The TOP/BOTTOM half-stacking checks below
-            // are floor-slope specific (clicking the slope's flat surface from
-            // above/below); they don't translate to the wall-mounted geometry, so
-            // they're gated off here.
-            return clickedFace == facing;
-        }
-        if (clickedFace == facing.getOpposite()) return true;
-        if (half == Half.TOP && clickedFace == Direction.DOWN) return true;
-        if (half == Half.BOTTOM && clickedFace == Direction.UP) return true;
-        return false;
+        return state.getValue(LAYERS) < 8;
     }
 
     // CCCopycatBlock implements Create's IBE<CCCopycatBlockEntity>; placement calls
@@ -154,6 +142,23 @@ public class CopycatVerticalSlopeLayerBlock extends CopycatSlopeLayerBlock {
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        // While the player holds this layer's item, expand the pick/outline shape to the
+        // full cell (scaffolding-style) so aiming anywhere on the block targets THIS block
+        // and adds a layer, instead of the ray slipping past the thin wedge to a neighbour
+        // (issue #45). Everyone else still sees the diagonal wedge outline. Collision stays
+        // the wedge via getCollisionShape below.
+        if (context.isHoldingItem(this.asItem())) {
+            return Shapes.block();
+        }
+        return wedgeShape(state, level, pos, context);
+    }
+
+    @Override
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return wedgeShape(state, level, pos, context);
+    }
+
+    private VoxelShape wedgeShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         if (!state.getValue(IN_WALL)) {
             return super.getShape(state, level, pos, context);
         }

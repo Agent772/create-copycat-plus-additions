@@ -24,10 +24,10 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
@@ -74,26 +74,20 @@ public class CopycatCornerSlopeLayerBlock extends CopycatCornerSlopeBlock {
 
     @Override
     public boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
-        ItemStack itemInHand = context.getItemInHand();
-        if (!itemInHand.is(this.asItem())) {
+        // Any click with the matching layer item grows the stack while it is below the
+        // cap — the clicked face is irrelevant. Face gating used to decide increment vs.
+        // place-adjacent, but the accepted face shifted with the wedge each layer, so the
+        // "sweet spot" moved between clicks (issue #45). Once the block is full (LAYERS==8)
+        // this returns false and a new block is placed on the clicked side as before.
+        // Sneak-placing opts out of stacking entirely: it behaves like a full block, so a
+        // new block is placed on the clicked side even below the cap.
+        if (context.isSecondaryUseActive()) {
             return false;
         }
-        if (state.getValue(LAYERS) == 8) {
+        if (!context.getItemInHand().is(this.asItem())) {
             return false;
         }
-        Half half = state.getValue(HALF);
-        Direction facing = state.getValue(FACING);
-        Direction clickedFace = context.getClickedFace();
-        if (clickedFace == facing.getOpposite()) {
-            return true;
-        }
-        if (half == Half.TOP && clickedFace == Direction.DOWN) {
-            return true;
-        }
-        if (half == Half.BOTTOM && clickedFace == Direction.UP) {
-            return true;
-        }
-        return false;
+        return state.getValue(LAYERS) < 8;
     }
 
     @Override
@@ -124,6 +118,23 @@ public class CopycatCornerSlopeLayerBlock extends CopycatCornerSlopeBlock {
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        // While the player holds this layer's item, expand the pick/outline shape to the
+        // full cell (scaffolding-style) so aiming anywhere on the block targets THIS block
+        // and adds a layer, instead of the ray slipping past the thin wedge to a neighbour
+        // (issue #45). Everyone else still sees the diagonal wedge outline. Collision stays
+        // the wedge via getCollisionShape below.
+        if (context.isHoldingItem(this.asItem())) {
+            return Shapes.block();
+        }
+        return wedgeShape(state);
+    }
+
+    @Override
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return wedgeShape(state);
+    }
+
+    private VoxelShape wedgeShape(BlockState state) {
         return CCAdditionsShapes.cornerSlopeLayer(
             state.getValue(FACING), state.getValue(HALF), state.getValue(LAYERS));
     }
