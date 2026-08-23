@@ -1,3 +1,3 @@
-## Version 1.3.1
+## Version 1.3.2
 
-added copycats+ 3.0.7 to compatible versions
+added copycats+ 3.0.8 to compatible versions
