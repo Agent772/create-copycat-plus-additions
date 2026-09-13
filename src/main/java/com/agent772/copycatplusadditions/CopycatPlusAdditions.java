@@ -26,7 +26,7 @@ public class CopycatPlusAdditions {
 
     public static final String MOD_ID = "copycatplusadditions";
 
-    private static final ResourceLocation UPSTREAM_SLOPE_LAYER_ID =
+    public static final ResourceLocation UPSTREAM_SLOPE_LAYER_ID =
         ResourceLocation.fromNamespaceAndPath("copycats", "copycat_slope_layer");
 
     public CopycatPlusAdditions(IEventBus modEventBus, ModContainer modContainer) {
