@@ -42,6 +42,6 @@ public class CopycatCornerSlopeLayerModelCore extends CopycatModelCore {
         double apexTop = CornerLayerProfile.apexTop(layers, 16.0);
         double floor = CornerLayerProfile.floor(layers, 16.0);
         CopycatCornerSlopeModelCore.assembleCornerSlope(context, facing, half, apexTop, floor, roofRotated,
-            inWall, flipped);
+            inWall, flipped, enhanced);
     }
 }

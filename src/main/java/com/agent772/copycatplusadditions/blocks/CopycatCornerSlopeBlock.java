@@ -49,7 +49,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * space (matching the notch of the inner corner slope at FACING=SOUTH), so the
  * two blocks interlock seamlessly.
  */
-public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock {
+public class CopycatCornerSlopeBlock extends CCWaterloggedCopycatBlock implements SlopeCTBlocking {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<Half> HALF = BlockStateProperties.HALF;

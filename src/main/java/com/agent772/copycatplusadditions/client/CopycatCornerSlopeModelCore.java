@@ -1,10 +1,5 @@
 package com.agent772.copycatplusadditions.client;
 
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.aabb;
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.cull;
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.slope;
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.updateUV;
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.vec3;
 import static com.copycatsplus.copycats.foundation.copycat.model.assembly.quad.QuadSlope.map;
 
 import java.util.List;
@@ -124,12 +119,16 @@ import net.neoforged.api.distmarker.OnlyIn;
  *       ("vertical lines" artifact);</li>
  *   <li>the sprite's border rows land on the block's outer edges (eave +
  *       sides), never on the ridge; the ridge lies on a sprite diagonal;</li>
- *   <li>texel density is 1:1 with a straight slope (the approved 1.0.1
- *       look).</li>
+ *   <li>texel density matches a straight slope: with Copycats+ enhanced
+ *       models on, each wing is split at its midpoint by {@link RoofWing} and
+ *       textured at 1:1 surface density from its own texture edge, exactly
+ *       like an upstream enhanced slope; with them off, one tile is stretched
+ *       over the incline, like an upstream plain slope.</li>
  * </ul>
  *
- * <p>{@link ProjectRoofUV} runs <i>after</i> {@link CollapseVertex}, so the
- * degenerate vertex — already stacked on the apex — receives the apex UV and
+ * <p>{@link ProjectRoofUV} runs on the uncollapsed half rectangles, then
+ * {@link CollapseVertex} trims them and re-evaluates each moved vertex's UV,
+ * so the degenerate vertex — stacked on the apex — receives the apex UV and
  * the unwanted triangle is zero-area in UV space too. Only quads with
  * {@code cullFace == Direction.UP} are touched; the vertical walls and the
  * flat DOWN face keep their pipeline UVs ({@code updateUV(slope(...))}
@@ -155,7 +154,7 @@ public class CopycatCornerSlopeModelCore extends CopycatModelCore {
         boolean roofRotated = state.getValue(CopycatCornerSlopeBlock.ROOF_ROTATED);
         boolean inWall = state.getValue(CopycatCornerSlopeBlock.IN_WALL);
         boolean flipped = state.getValue(CopycatCornerSlopeBlock.WALL_FLIPPED);
-        assembleCornerSlope(context, facing, half, 16.0, 0.0, roofRotated, inWall, flipped);
+        assembleCornerSlope(context, facing, half, 16.0, 0.0, roofRotated, inWall, flipped, enhanced);
     }
 
     /**
@@ -168,7 +167,8 @@ public class CopycatCornerSlopeModelCore extends CopycatModelCore {
      * full-height {@code aabb} prism, so no separate base slab is needed.
      */
     static void assembleCornerSlope(CopycatRenderContext context, Direction facing, Half half, double apexTop,
-                                    double floor, boolean roofRotated, boolean inWall, boolean flipped) {
+                                    double floor, boolean roofRotated, boolean inWall, boolean flipped,
+                                    boolean enhanced) {
         int yRot = (int) facing.getClockWise().toYRot();
         boolean topHalf = half == Half.TOP;
         // When mounted on a wall, tip the fully-oriented floor geometry onto the wall
@@ -197,39 +197,57 @@ public class CopycatCornerSlopeModelCore extends CopycatModelCore {
         // 180-degree symmetric, so a single boolean covers both distinct looks.
         Direction eave1 = roofRotated ? Direction.EAST.getClockWise() : Direction.EAST;
         Direction eave2 = roofRotated ? Direction.SOUTH.getClockWise() : Direction.SOUTH;
-        ProjectRoofUV roofUV1 = new ProjectRoofUV(eave1);
-        ProjectRoofUV roofUV2 = new ProjectRoofUV(eave2);
+        // With Copycats+ enhanced models on, texture the roof at 1:1 surface density
+        // like upstream slopes instead of stretching one tile over the incline.
+        double scale = enhanced ? RoofUVMath.enhancedSlopeScale(apexTop - floor) : 1.0;
+        // Top-anchored layers raise the eave walls (EAST on piece 1, SOUTH on
+        // piece 2) off the floor; enhanced models build those short walls from the
+        // side texture's bottom and top halves, like upstream slope layers.
+        boolean anchoredEaves = RoofWing.anchorsWall(enhanced, floor);
+        int eaveWall1 = anchoredEaves ? MutableCullFace.EAST : 0;
+        int eaveWall2 = anchoredEaves ? MutableCullFace.SOUTH : 0;
 
-        // Piece 1 — NE wing: planar X-slope. Slope's full apex is the west edge
-        // (NW + SW both at y=h). Collapsing SW(0,1) onto NW(0,0) leaves a single
-        // planar triangle NW–NE–SE covering the x ≥ z half of the square, with
-        // its apex only at NW.
+        // Piece 1 — NE wing: planar X-slope down towards EAST. Slope's full apex
+        // is the west edge (NW + SW both at y=h). Collapsing SW(0,1) onto NW(0,0)
+        // leaves a single planar triangle NW–NE–SE covering the x ≥ z half of the
+        // square, with its apex only at NW. RoofWing splits the wing at x=0.5, so
+        // each half's (0.5,1) corner is also pulled onto the ridge at (0.5,0.5).
         // Outer wall: NORTH (slope-edge triangle). Culled: SOUTH | WEST — both
         // are interior (Piece 2 supplies the matching outer walls).
-        context.assemblePiece(
+        RoofWing.assemble(
+            context,
             transform,
-            vec3(0, 0, 0),
-            aabb(16, 16, 16),
-            cull(MutableCullFace.SOUTH | MutableCullFace.WEST),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, apexTop, floor, a))),
-            new CollapseVertex(0, 1, 0, 0),
-            roofUV1
+            MutableCullFace.SOUTH | MutableCullFace.WEST | eaveWall1,
+            (a, b) -> map(0, 16, apexTop, floor, a),
+            eave1,
+            Direction.EAST,
+            scale,
+            List.of(new CollapseVertex(0, 1, 0, 0), new CollapseVertex(0.5, 1, 0.5, 0.5)),
+            List.of(new CollapseVertex(0.5, 1, 0.5, 0.5))
         );
 
-        // Piece 2 — SW wing: planar Z-slope. Slope's full apex is the north edge
-        // (NW + NE both at y=h). Collapsing NE(1,0) onto NW(0,0) leaves a single
-        // planar triangle NW–SE–SW covering the x ≤ z half of the square, with
-        // its apex only at NW.
+        // Piece 2 — SW wing: planar Z-slope down towards SOUTH. Slope's full apex
+        // is the north edge (NW + NE both at y=h). Collapsing NE(1,0) onto NW(0,0)
+        // leaves a single planar triangle NW–SE–SW covering the x ≤ z half of the
+        // square, with its apex only at NW. Split at z=0.5, each half's (1,0.5)
+        // corner is pulled onto the ridge at (0.5,0.5).
         // Outer wall: WEST (slope-edge triangle). Culled: NORTH | EAST — both
         // are interior (Piece 1 supplies the matching outer walls).
-        context.assemblePiece(
+        RoofWing.assemble(
+            context,
             transform,
-            vec3(0, 0, 0),
-            aabb(16, 16, 16),
-            cull(MutableCullFace.NORTH | MutableCullFace.EAST),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, apexTop, floor, b))),
-            new CollapseVertex(1, 0, 0, 0),
-            roofUV2
+            MutableCullFace.NORTH | MutableCullFace.EAST | eaveWall2,
+            (a, b) -> map(0, 16, apexTop, floor, b),
+            eave2,
+            Direction.SOUTH,
+            scale,
+            List.of(new CollapseVertex(1, 0, 0, 0), new CollapseVertex(1, 0.5, 0.5, 0.5)),
+            List.of(new CollapseVertex(1, 0.5, 0.5, 0.5))
         );
+
+        if (anchoredEaves) {
+            RoofWing.anchoredWall(context, transform, Direction.EAST, floor);
+            RoofWing.anchoredWall(context, transform, Direction.SOUTH, floor);
+        }
     }
 }

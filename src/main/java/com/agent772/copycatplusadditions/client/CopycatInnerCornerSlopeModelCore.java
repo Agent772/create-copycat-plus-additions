@@ -1,10 +1,5 @@
 package com.agent772.copycatplusadditions.client;
 
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.aabb;
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.cull;
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.slope;
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.updateUV;
-import static com.copycatsplus.copycats.foundation.copycat.model.assembly.CopycatRenderContext.vec3;
 import static com.copycatsplus.copycats.foundation.copycat.model.assembly.quad.QuadSlope.map;
 
 import java.util.List;
@@ -63,7 +58,7 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
         boolean roofRotated = state.getValue(CopycatInnerCornerSlopeBlock.ROOF_ROTATED);
         boolean inWall = state.getValue(CopycatInnerCornerSlopeBlock.IN_WALL);
         boolean flipped = state.getValue(CopycatInnerCornerSlopeBlock.WALL_FLIPPED);
-        assembleInnerCorner(context, facing, half, 16.0, 0.0, roofRotated, inWall, flipped);
+        assembleInnerCorner(context, facing, half, 16.0, 0.0, roofRotated, inWall, flipped, enhanced);
     }
 
     /**
@@ -76,7 +71,8 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
      * full-height {@code aabb} prism, so no separate base slab is needed.
      */
     static void assembleInnerCorner(CopycatRenderContext context, Direction facing, Half half, double apexTop,
-                                    double floor, boolean roofRotated, boolean inWall, boolean flipped) {
+                                    double floor, boolean roofRotated, boolean inWall, boolean flipped,
+                                    boolean enhanced) {
         int yRot = (int) facing.toYRot();
         boolean topHalf = half == Half.TOP;
         // Wall mount: tip the oriented floor geometry onto the wall with the shared
@@ -105,31 +101,50 @@ public class CopycatInnerCornerSlopeModelCore extends CopycatModelCore {
         // Piece 1 slopes down to the LOCAL north edge; piece 2 to the LOCAL east edge.
         Direction eave1 = roofRotated ? Direction.NORTH.getClockWise() : Direction.NORTH;
         Direction eave2 = roofRotated ? Direction.EAST.getClockWise() : Direction.EAST;
-        ProjectRoofUV roofUV1 = new ProjectRoofUV(eave1);
-        ProjectRoofUV roofUV2 = new ProjectRoofUV(eave2);
+        // With Copycats+ enhanced models on, texture the roof at 1:1 surface density
+        // like upstream slopes instead of stretching one tile over the incline.
+        double scale = enhanced ? RoofUVMath.enhancedSlopeScale(apexTop - floor) : 1.0;
+        // Bottom-anchored layers leave the ridge walls (SOUTH on piece 1, WEST on
+        // piece 2) short of a full block; enhanced models build those short walls
+        // from the side texture's bottom and top halves, like upstream slope layers.
+        boolean anchoredRidges = RoofWing.anchorsWall(enhanced, apexTop);
+        int ridgeWall1 = anchoredRidges ? MutableCullFace.SOUTH : 0;
+        int ridgeWall2 = anchoredRidges ? MutableCullFace.WEST : 0;
 
         // Piece 1: planar slope along Z. Low at z=0 (north), high at z=1 (south).
         // The slope function only depends on b (=z), so the UP face quad's heights
-        // are [0, 0, h, h] — strictly planar, no triangulation ambiguity.
-        context.assemblePiece(
+        // are [0, 0, h, h] — strictly planar, no triangulation ambiguity. RoofWing
+        // splits it at z=0.5 so each half is textured from its own texture edge.
+        RoofWing.assemble(
+            context,
             transform,
-            vec3(0, 0, 0),
-            aabb(16, 16, 16),
-            cull(MutableCullFace.NORTH | MutableCullFace.WEST),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, floor, apexTop, b))),
-            roofUV1
+            MutableCullFace.NORTH | MutableCullFace.WEST | ridgeWall1,
+            (a, b) -> map(0, 16, floor, apexTop, b),
+            eave1,
+            Direction.NORTH,
+            scale,
+            List.of(),
+            List.of()
         );
 
         // Piece 2: planar slope along X. Low at x=1 (east), high at x=0 (west).
         // Together with Piece 1 the z-buffer resolves to max(b, h - a*h/16), which
         // is the inner-corner profile with the notch landing at the NE local corner.
-        context.assemblePiece(
+        RoofWing.assemble(
+            context,
             transform,
-            vec3(0, 0, 0),
-            aabb(16, 16, 16),
-            cull(MutableCullFace.EAST | MutableCullFace.SOUTH),
-            updateUV(slope(Direction.UP, (a, b) -> map(0, 16, apexTop, floor, a))),
-            roofUV2
+            MutableCullFace.EAST | MutableCullFace.SOUTH | ridgeWall2,
+            (a, b) -> map(0, 16, apexTop, floor, a),
+            eave2,
+            Direction.EAST,
+            scale,
+            List.of(),
+            List.of()
         );
+
+        if (anchoredRidges) {
+            RoofWing.anchoredWall(context, transform, Direction.SOUTH, apexTop);
+            RoofWing.anchoredWall(context, transform, Direction.WEST, apexTop);
+        }
     }
 }

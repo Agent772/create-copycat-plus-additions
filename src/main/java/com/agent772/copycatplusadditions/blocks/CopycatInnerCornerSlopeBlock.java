@@ -45,7 +45,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * outer wedge fills one triangular quadrant, this inner block fills the remaining
  * three quadrants, and the two together tile a full block.
  */
-public class CopycatInnerCornerSlopeBlock extends CCWaterloggedCopycatBlock {
+public class CopycatInnerCornerSlopeBlock extends CCWaterloggedCopycatBlock implements SlopeCTBlocking {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<Half> HALF = BlockStateProperties.HALF;
