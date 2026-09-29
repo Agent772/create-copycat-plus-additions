@@ -4,8 +4,11 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import com.agent772.copycatplusadditions.registry.ModBlocks;
+import com.agent772.copycatplusadditions.registry.ModTooltips;
 import com.copycatsplus.copycats.foundation.copycat.ICopycatBlock;
 import com.copycatsplus.copycats.foundation.copycat.model.CopycatModelCore;
+import com.copycatsplus.copycats.foundation.tooltip.CopycatDescription;
+import com.simibubi.create.foundation.item.TooltipModifier;
 
 import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.resources.model.BakedModel;
@@ -14,6 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -36,6 +40,10 @@ import net.neoforged.neoforge.registries.DeferredHolder;
  * untinted (e.g. white armor). {@link #onRegisterBlockColors} replicates that wiring for
  * our five blocks (issue #36).
  *
+ * <p>Likewise Copycats+ attaches its characteristics tooltip through Registrate's
+ * tooltip-modifier factory; {@link #onClientSetup} registers the same
+ * {@link CopycatDescription} modifier with Create for our items (issue #62).
+ *
  * <p>This class — and everything it imports — must only be touched on the physical
  * client; {@code CopycatPlusAdditions} guards the call to {@link #init(IEventBus)} with
  * a {@code Dist} check.
@@ -48,6 +56,12 @@ public final class CopycatPlusAdditionsClient {
     public static void init(IEventBus modEventBus) {
         modEventBus.addListener(CopycatPlusAdditionsClient::onModifyBakingResult);
         modEventBus.addListener(CopycatPlusAdditionsClient::onRegisterBlockColors);
+        modEventBus.addListener(CopycatPlusAdditionsClient::onClientSetup);
+    }
+
+    private static void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> ModTooltips.CHARACTERISTICS.keySet().forEach(item ->
+            TooltipModifier.REGISTRY.register(item.asItem(), CopycatDescription.create(item))));
     }
 
     // Delegate tint resolution to the copycat's material state, matching how Copycats+

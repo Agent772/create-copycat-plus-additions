@@ -5,6 +5,7 @@ import com.agent772.copycatplusadditions.config.ServerConfig;
 import com.agent772.copycatplusadditions.registry.ModBlockEntities;
 import com.agent772.copycatplusadditions.registry.ModBlocks;
 import com.agent772.copycatplusadditions.registry.ModItems;
+import com.agent772.copycatplusadditions.registry.ModTooltips;
 import com.copycatsplus.copycats.CCCreativeTabs;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -18,6 +19,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
@@ -45,6 +47,11 @@ public class CopycatPlusAdditions {
         // the relationship between the two operations obvious and avoids the hidden
         // coupling on Copycats+' own listener priority.
         modEventBus.addListener(EventPriority.LOWEST, CopycatPlusAdditions::onBuildCreativeTabContents);
+
+        // Copycats+ characteristics tooltip data (issue #62). Common side so the map is
+        // populated on every dist; the client-only tooltip hook reads it.
+        modEventBus.addListener((FMLCommonSetupEvent event) ->
+            event.enqueueWork(ModTooltips::registerCharacteristics));
 
         // Client-only: wire the custom slope-layer model swap. The client class is
         // referenced solely inside this branch so it is never loaded on a dedicated
