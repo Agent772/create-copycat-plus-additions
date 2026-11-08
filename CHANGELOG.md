@@ -1,3 +1,6 @@
+## Version 1.5.1
+Increased Copycat Version compat to 3.0.12
+
 ## Version 1.5.0
 
 ### Added
